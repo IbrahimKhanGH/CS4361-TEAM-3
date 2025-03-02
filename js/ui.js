@@ -163,19 +163,46 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * Shows an information message in the info panel
+ * Shows a message in the info panel for a specified duration
  * @param {string} message - The message to display
- * @param {number} duration - How long to show the message (in ms)
+ * @param {number} duration - How long to show the message in milliseconds
  */
 function showInfoMessage(message, duration = 3000) {
-    const infoPanel = document.getElementById('info-panel');
-    infoPanel.innerHTML = message;
-    infoPanel.classList.add('visible');
-    
-    // Hide after duration
-    setTimeout(function() {
-        infoPanel.classList.remove('visible');
-    }, duration);
+    try {
+        // Find or create the info panel
+        let infoPanel = document.querySelector('.info-panel');
+        
+        // If info panel doesn't exist, create it
+        if (!infoPanel) {
+            console.log('Info panel not found, creating it');
+            infoPanel = document.createElement('div');
+            infoPanel.className = 'info-panel';
+            document.body.appendChild(infoPanel);
+        }
+        
+        // Create or update the content
+        let infoContent = infoPanel.querySelector('.info-content');
+        if (!infoContent) {
+            infoContent = document.createElement('div');
+            infoContent.className = 'info-content';
+            infoPanel.appendChild(infoContent);
+        }
+        
+        // Set the message
+        infoContent.textContent = message;
+        
+        // Make the panel visible
+        infoPanel.classList.add('visible');
+        
+        // Hide after duration
+        setTimeout(() => {
+            infoPanel.classList.remove('visible');
+        }, duration);
+        
+        console.log('Info message displayed:', message);
+    } catch (error) {
+        console.error('Error showing info message:', error);
+    }
 }
 
 /**
@@ -184,24 +211,36 @@ function showInfoMessage(message, duration = 3000) {
  * @param {string} description - The description of the station
  */
 function updateStationInfo(stationName, description) {
-    // Update the current topic text
-    const currentTopicElement = document.getElementById('current-topic');
-    if (currentTopicElement) {
-        currentTopicElement.textContent = stationName;
-    }
-    
-    // Update the topic description
-    const topicDescriptionElement = document.getElementById('topic-description');
-    if (topicDescriptionElement) {
-        topicDescriptionElement.innerHTML = `<p>${description}</p>`;
-    }
-    
-    // Show info message
-    showInfoMessage(`<h3>Approaching: ${stationName} Station</h3><p>Press Tab to view details</p>`);
-    
-    // Show UI panel
-    const uiPanel = document.getElementById('ui-panel');
-    if (uiPanel) {
-        uiPanel.classList.add('visible');
+    try {
+        console.log('Updating station info:', stationName);
+        
+        // Update the current topic
+        const currentTopicElement = document.getElementById('current-topic');
+        if (currentTopicElement) {
+            currentTopicElement.textContent = stationName;
+        } else {
+            console.warn('Current topic element not found');
+        }
+        
+        // Update the topic description
+        const topicDescriptionElement = document.getElementById('topic-description');
+        if (topicDescriptionElement) {
+            topicDescriptionElement.innerHTML = `<p>${description}</p>`;
+        } else {
+            console.warn('Topic description element not found');
+        }
+        
+        // Show a notification
+        showInfoMessage(`Now learning about: ${stationName}`);
+        
+        // Make the UI panel visible
+        const uiPanel = document.getElementById('ui-panel');
+        if (uiPanel) {
+            uiPanel.classList.add('visible');
+        } else {
+            console.warn('UI panel element not found');
+        }
+    } catch (error) {
+        console.error('Error updating station info:', error);
     }
 } 
