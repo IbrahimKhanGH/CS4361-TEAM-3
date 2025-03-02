@@ -125,4 +125,83 @@ function onWindowResize() {
     camera.aspect = (window.innerWidth - 300) / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth - 300, window.innerHeight);
+}
+
+/**
+ * UI management for the 3D world
+ */
+
+// Add UI toggle button
+document.addEventListener('DOMContentLoaded', function() {
+    // Create UI toggle button
+    const uiToggle = document.createElement('button');
+    uiToggle.id = 'ui-toggle';
+    uiToggle.innerHTML = 'i';
+    uiToggle.title = 'Toggle Information Panel';
+    document.body.appendChild(uiToggle);
+    
+    // Create info panel for learning stations
+    const infoPanel = document.createElement('div');
+    infoPanel.className = 'info-panel';
+    infoPanel.id = 'info-panel';
+    document.body.appendChild(infoPanel);
+    
+    // Add event listener for UI toggle
+    uiToggle.addEventListener('click', function() {
+        const uiPanel = document.getElementById('ui-panel');
+        uiPanel.classList.toggle('visible');
+    });
+    
+    // Add keyboard shortcut for UI toggle (Tab key)
+    document.addEventListener('keydown', function(event) {
+        if (event.code === 'Tab') {
+            event.preventDefault(); // Prevent default tab behavior
+            const uiPanel = document.getElementById('ui-panel');
+            uiPanel.classList.toggle('visible');
+        }
+    });
+});
+
+/**
+ * Shows an information message in the info panel
+ * @param {string} message - The message to display
+ * @param {number} duration - How long to show the message (in ms)
+ */
+function showInfoMessage(message, duration = 3000) {
+    const infoPanel = document.getElementById('info-panel');
+    infoPanel.innerHTML = message;
+    infoPanel.classList.add('visible');
+    
+    // Hide after duration
+    setTimeout(function() {
+        infoPanel.classList.remove('visible');
+    }, duration);
+}
+
+/**
+ * Updates the UI with information about the current learning station
+ * @param {string} stationName - The name of the station
+ * @param {string} description - The description of the station
+ */
+function updateStationInfo(stationName, description) {
+    // Update the current topic text
+    const currentTopicElement = document.getElementById('current-topic');
+    if (currentTopicElement) {
+        currentTopicElement.textContent = stationName;
+    }
+    
+    // Update the topic description
+    const topicDescriptionElement = document.getElementById('topic-description');
+    if (topicDescriptionElement) {
+        topicDescriptionElement.innerHTML = `<p>${description}</p>`;
+    }
+    
+    // Show info message
+    showInfoMessage(`<h3>Approaching: ${stationName} Station</h3><p>Press Tab to view details</p>`);
+    
+    // Show UI panel
+    const uiPanel = document.getElementById('ui-panel');
+    if (uiPanel) {
+        uiPanel.classList.add('visible');
+    }
 } 

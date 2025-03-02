@@ -1,0 +1,8 @@
+This is a placeholder file for textures.
+
+In a real implementation, you would have actual texture files here:
+- ground.jpg
+- demo_texture.jpg
+- skybox/px.jpg, skybox/nx.jpg, etc.
+
+For development purposes, the application will use fallback colors when textures are not found. 
