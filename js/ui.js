@@ -152,7 +152,8 @@ document.addEventListener('DOMContentLoaded', function() {
         uiPanel.classList.toggle('visible');
     });
     
-    // Add keyboard shortcut for UI toggle (Tab key)
+    // Add keyboard shortcut for UI toggle (Tab key) - Removed redundant listener, handled in firstPersonControls.js
+    /*
     document.addEventListener('keydown', function(event) {
         if (event.code === 'Tab') {
             event.preventDefault(); // Prevent default tab behavior
@@ -160,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
             uiPanel.classList.toggle('visible');
         }
     });
+    */
 });
 
 /**
@@ -222,10 +224,11 @@ function updateStationInfo(stationName, description) {
             console.warn('Current topic element not found');
         }
         
-        // Update the topic description
+        // Update the topic description, replacing newlines with <br>
         const topicDescriptionElement = document.getElementById('topic-description');
         if (topicDescriptionElement) {
-            topicDescriptionElement.innerHTML = `<p>${description}</p>`;
+            const formattedDescription = description.replace(/\n/g, '<br>');
+            topicDescriptionElement.innerHTML = `<p>${formattedDescription}</p>`;
         } else {
             console.warn('Topic description element not found');
         }

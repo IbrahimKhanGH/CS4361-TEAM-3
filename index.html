@@ -161,6 +161,7 @@
                 <li>Jump: Space</li>
                 <li>Interact: Approach learning stations</li>
                 <li>Toggle Info: Tab key or 'i' button</li>
+                <li>Exit: 'ESC'</li>
             </ul>
             <p class="click-instruction">Click anywhere to begin</p>
             <button id="start-experience" class="control-button" style="margin-top: 20px;">START EXPERIENCE</button>
@@ -307,6 +308,15 @@
                             
                             // Check all required functions
                             window.checkRequiredFunctions();
+                            
+                            // Call init() now that all scripts are loaded
+                            if (typeof init === 'function') {
+                                console.log('Calling init()...');
+                                init();
+                            } else {
+                                console.error('init function not found after loading main.js!');
+                                showError('Core initialization function failed to load.');
+                            }
                         }, 'main-script');
                     }, 'controls-script');
                 }, 'world-script');
@@ -611,11 +621,6 @@
                             if (loadingScreen && loadingScreen.style.display !== 'none') {
                                 console.log('Hiding loading screen after progress completion');
                                 loadingScreen.style.display = 'none';
-                                
-                                const instructions = document.getElementById('instructions');
-                                if (instructions) {
-                                    instructions.style.display = 'flex';
-                                }
                             }
                         }, 1000);
                     }

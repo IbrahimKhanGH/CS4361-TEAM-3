@@ -57,6 +57,21 @@ p {
     border-radius: 5px;
 }
 
+/* Add styles for the scrollable description box */
+#topic-description {
+    max-height: 300px; /* Limit the height */
+    overflow-y: auto; /* Add scrollbar when needed */
+    padding: 10px;
+    margin-top: 10px; /* Add some space above */
+    border: 1px solid #444; /* Optional border */
+    background-color: rgba(0, 0, 0, 0.1); /* Optional background */
+    border-radius: 3px;
+}
+
+#topic-description p {
+    margin-bottom: 0; /* Remove default paragraph margin inside */
+}
+
 button {
     background-color: #4CAF50;
     border: none;

@@ -43,6 +43,8 @@ function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.shadowMap.enabled = true;
+        // Use the fastest shadow map type for performance
+        renderer.shadowMap.type = THREE.PCFShadowMap;
         
         // Get the canvas container
         const container = document.getElementById('canvas-container');
@@ -115,25 +117,8 @@ function init() {
  * Add a simple test cube and ground plane to verify rendering
  */
 function addTestObjects() {
-    // Add a red cube
-    const cubeGeometry = new THREE.BoxGeometry(2, 2, 2);
-    const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.set(0, 2, -5);
-    scene.add(cube);
-    if (DEBUG_MAIN) console.log('Test cube added at position:', cube.position);
-    
-    // Add a ground plane
-    const planeGeometry = new THREE.PlaneGeometry(20, 20);
-    const planeMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0x999999,
-        side: THREE.DoubleSide
-    });
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = -0.1;
-    scene.add(plane);
-    if (DEBUG_MAIN) console.log('Test ground plane added');
+    // Test objects previously created here are now removed.
+    if (DEBUG_MAIN) console.log('addTestObjects: No test objects being added.');
 }
 
 /**

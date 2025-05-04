@@ -10,7 +10,7 @@ let ambientLight, directionalLight, pointLight;
  */
 function createLights() {
     // Ambient light - provides base illumination for all objects
-    ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     scene.add(ambientLight);
     
     // Directional light (sun-like) - casts shadows

@@ -54,9 +54,9 @@ function initFirstPersonControls(camera, domElement) {
         
         // Add event listeners for pointer lock
         document.addEventListener('click', function(event) {
-            if (DEBUG_CONTROLS) console.log('Document clicked, attempting to lock pointer');
+            if (DEBUG_CONTROLS) console.log('Document clicked, checking lock state');
             
-            // Only lock if we clicked on the canvas or instructions
+            // Only react if we clicked on the canvas or instructions
             const target = event.target;
             const isCanvas = target.closest('#canvas-container');
             const isInstructions = target.closest('#instructions');
@@ -64,12 +64,21 @@ function initFirstPersonControls(camera, domElement) {
             if (DEBUG_CONTROLS) console.log('Click target:', target, 'isCanvas:', isCanvas, 'isInstructions:', isInstructions);
             
             if (isCanvas || isInstructions) {
-                // Try to request pointer lock
+                // Try to toggle pointer lock
                 try {
-                    controls.lock();
-                    if (DEBUG_CONTROLS) console.log('Requested pointer lock');
+                    if (controls.isLocked) {
+                        if (DEBUG_CONTROLS) console.log('Already locked, requesting unlock');
+                        // controls.unlock(); // Let ESC handle unlocking for now to avoid accidental unlocks?
+                        // Let's stick to the original behavior: click locks, ESC unlocks.
+                        // If you *really* want click-to-unlock, uncomment the line above.
+                        // For now, we just ensure click only attempts lock when unlocked.
+                        console.log('Click ignored: Already locked. Use ESC to unlock.');
+                    } else {
+                        if (DEBUG_CONTROLS) console.log('Not locked, requesting lock');
+                        controls.lock();
+                    }
                 } catch (error) {
-                    console.error('Error requesting pointer lock:', error);
+                    console.error('Error toggling pointer lock:', error);
                 }
             }
         });
@@ -89,11 +98,13 @@ function initFirstPersonControls(camera, domElement) {
             if (DEBUG_CONTROLS) console.log('Pointer lock released');
             pointerLocked = false;
             
-            // Show instructions when unlocked
+            // Show instructions when unlocked - REMOVED THIS BEHAVIOR
+            /*
             const instructions = document.getElementById('instructions');
             if (instructions) {
                 instructions.style.display = 'flex';
             }
+            */
         });
         
         // Add keyboard controls
@@ -188,8 +199,8 @@ function onKeyDown(event) {
             moveRight = true;
             break;
             
-        case 'Space':
-            if (canJump === true) velocity.y += 350;
+        case 32: // space
+            if (canJump === true) velocity.y += 100.0;
             canJump = false;
             break;
             
@@ -249,18 +260,19 @@ function updateFirstPersonControls(delta) {
     }
     
     // Apply gravity and damping
-    velocity.y -= 9.8 * 100.0 * delta; // 100.0 = mass
+    velocity.y -= 9.8 * 80.0 * delta;
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
     
     // Set direction based on movement keys
     direction.z = Number(moveForward) - Number(moveBackward);
     direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize(); // Ensures consistent movement in all directions
+    direction.normalize(); // Ensure consistent movement speed in all directions
     
-    // Calculate movement
-    if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-    if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+    // Update velocity based on movement direction and speed multiplier
+    const speedMultiplier = 250.0; // Further reduced speed multiplier
+    if (moveForward || moveBackward) velocity.z -= direction.z * speedMultiplier * delta;
+    if (moveLeft || moveRight) velocity.x -= direction.x * speedMultiplier * delta;
     
     // Apply movement to controls
     controls.moveRight(-velocity.x * delta);
@@ -268,11 +280,17 @@ function updateFirstPersonControls(delta) {
     
     // Apply gravity to camera position
     camera.position.y += (velocity.y * delta);
+
+    // Add world boundary limits
+    const boundary = 45.0;
+    camera.position.x = Math.max(-boundary, Math.min(boundary, camera.position.x));
+    camera.position.z = Math.max(-boundary, Math.min(boundary, camera.position.z));
     
     // Check if we're on the ground
-    if (camera.position.y < 1.8) {
+    const groundLevelY = 1.6; // Raised camera height 
+    if (camera.position.y < groundLevelY) { 
         velocity.y = 0;
-        camera.position.y = 1.8;
+        camera.position.y = groundLevelY; 
         canJump = true;
     }
     
