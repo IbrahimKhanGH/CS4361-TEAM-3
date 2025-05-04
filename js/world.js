@@ -16,7 +16,8 @@ let currentStation = null;
 const stationControls = {};
 
 // External THREE.js objects we need access to
-let scene, camera, clock;
+// Don't redeclare these as they come from main.js
+// let scene, camera, clock;
 
 // station descriptions
 const stationDescriptions = {
@@ -31,9 +32,8 @@ const stationDescriptions = {
  * Initialize the world with scene and camera references
  */
 function initWorld(sceneRef, cameraRef) {
-    scene = sceneRef;
-    camera = cameraRef;
-    clock = new THREE.Clock();
+    // Use the existing scene and camera from main.js
+    // We don't need to set scene and camera since they're already global
     
     // Create the world
     createWorld();
@@ -44,9 +44,14 @@ function initWorld(sceneRef, cameraRef) {
 //=============================================================================
 
 /**
- * create main world environment
+ * Legacy function for backward compatibility 
  */
 function createWorld() {
+    if (!scene) {
+        console.error('Scene not initialized! Call initWorld first.');
+        return;
+    }
+    
     // make skybox
     createSkybox();
     
@@ -67,7 +72,8 @@ function createWorld() {
  * update world animations
  */
 function updateWorld(time) {
-    const delta = clock.getDelta();
+    // Use a fixed delta time or get it from animation loop if passed as parameter
+    const delta = 0.016; // Approximately 60fps
 
     // update all learning station demos
     for (const stationKey in learningStations) {
@@ -359,16 +365,29 @@ function createStation(name, position, color) {
             // Update UI with station info
             updateStationInfo(name, description);
             
-            // Animate the demo object
-            this.demoObject.visible = true;
-            // If the demo object has an init method (e.g., for resetting animation), call it
-            if (this.demoObject.init) {
-                this.demoObject.init();
-            }
-            
-            // Set up interactive controls if the demo supports it
-            if (this.demoObject.setupControls) {
-                this.demoObject.setupControls();
+            // Check if demo object exists before trying to use it
+            if (this.demoObject) {
+                try {
+                    console.log('Activating demo for station:', name);
+                    // Make demo object visible
+                    this.demoObject.visible = true;
+                    
+                    // If the demo object has an init method (e.g., for resetting animation), call it
+                    if (this.demoObject.init) {
+                        this.demoObject.init();
+                    }
+                    
+                    // Set up interactive controls if the demo supports it
+                    if (stationControls[stationKey] && stationControls[stationKey].show) {
+                        stationControls[stationKey].show();
+                    } else {
+                        console.warn('No controls available for station:', name);
+                    }
+                } catch (error) {
+                    console.error('Error activating demo object:', error);
+                }
+            } else {
+                console.error('No demo object available for station:', name);
             }
             
             // Set as current station
@@ -380,12 +399,21 @@ function createStation(name, position, color) {
             // Remove highlight
             platform.material.emissiveIntensity = 0;
             
-            // Hide demo object
-            this.demoObject.visible = false;
-            
-            // Remove interactive controls if the demo supports it
-            if (this.demoObject.removeControls) {
-                this.demoObject.removeControls();
+            // Check if demo object exists before trying to hide it
+            if (this.demoObject) {
+                try {
+                    console.log('Deactivating demo for station:', name);
+                    // Hide demo object
+                    this.demoObject.visible = false;
+                    
+                    // Remove interactive controls if available
+                    const stationKey = name.toLowerCase();
+                    if (stationControls[stationKey] && stationControls[stationKey].hide) {
+                        stationControls[stationKey].hide();
+                    }
+                } catch (error) {
+                    console.error('Error deactivating demo object:', error);
+                }
             }
         }
     };
@@ -401,7 +429,12 @@ function createStation(name, position, color) {
 function createStationDemoObject(stationType, position, color) {
     let demoObject = null;
     
-    switch(stationType) {
+    // Ensure we clean the station type for better matching
+    const type = stationType.toLowerCase().trim();
+    
+    console.log('Creating station demo for type:', type);
+    
+    switch(type) {
         case 'pipeline':
             demoObject = createPipelineDemo(position, color);
             break;
@@ -418,12 +451,42 @@ function createStationDemoObject(stationType, position, color) {
             demoObject = createShaderDemo(position, color);
             break;
         default:
-            console.error('Unknown station type:', stationType);
+            console.warn('Unknown station type:', stationType, 'Cleaned type:', type);
+            // Create a fallback demo object
+            const geometry = new THREE.SphereGeometry(1, 32, 32);
+            const material = new THREE.MeshBasicMaterial({ color: color });
+            demoObject = new THREE.Mesh(geometry, material);
+            demoObject.position.copy(position);
+            demoObject.position.y += 2;
+            scene.add(demoObject);
     }
     
     if (demoObject) {
         demoObject.visible = false; // Hidden by default
         scene.add(demoObject);
+    }
+    
+    // If demoObject is null or doesn't have expected properties, create a placeholder
+    if (!demoObject || typeof demoObject.update !== 'function') {
+        console.warn('Creating placeholder for demo object:', stationType);
+        // Create placeholder with update method
+        const placeholderGroup = new THREE.Group();
+        placeholderGroup.position.copy(position);
+        placeholderGroup.position.y += 3;
+        
+        const placeholderGeometry = new THREE.SphereGeometry(1, 16, 16);
+        const placeholderMaterial = new THREE.MeshBasicMaterial({ color: color });
+        const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial);
+        placeholderGroup.add(placeholderMesh);
+        
+        // Add update method to placeholder
+        placeholderGroup.update = function(time, delta) {
+            placeholderMesh.rotation.y += delta * 0.5;
+        };
+        
+        placeholderGroup.visible = false;
+        scene.add(placeholderGroup);
+        demoObject = placeholderGroup;
     }
     
     return demoObject;
@@ -438,72 +501,167 @@ function createPipelineDemo(position, color) {
     group.position.copy(position);
     group.position.y += 3; // Raise above platform
     
-    // Create a simplistic representation of the pipeline
-    const stages = [
-        { name: "Vertex Processing", color: 0x4CAF50 },
-        { name: "Primitive Assembly", color: 0x8BC34A },
-        { name: "Rasterization", color: 0xCDDC39 },
-        { name: "Fragment Processing", color: 0xFFEB3B },
-        { name: "Output Merger", color: 0xFFC107 }
-    ];
+    // Create stages of the pipeline as separate objects
+    const stages = ['vertex', 'tessellation', 'geometry', 'rasterization', 'fragment', 'output'];
+    const stageObjects = {};
+    const stageSpacing = 0.7;
     
-    const stageSpacing = 1.0;
-    const stageSize = 0.5;
-    
-    // Create a model that will move through the pipeline
-    const modelGeometry = new THREE.TetrahedronGeometry(0.3);
-    const modelMaterial = new THREE.MeshStandardMaterial({
+    // Create a 3D model that moves through the pipeline
+    const pipelineModelGeometry = new THREE.TorusKnotGeometry(0.3, 0.1, 32, 8);
+    const pipelineModelMaterial = new THREE.MeshStandardMaterial({
         color: 0xFFFFFF,
-        roughness: 0.5,
-        metalness: 0.5
+        emissive: color,
+        emissiveIntensity: 0.5,
+        wireframe: false
     });
-    const model = new THREE.Mesh(modelGeometry, modelMaterial);
-    model.position.set(-stageSpacing * 3, 0, 0);
-    group.add(model);
+    const pipelineModel = new THREE.Mesh(pipelineModelGeometry, pipelineModelMaterial);
+    group.add(pipelineModel);
     
-    // Create visual representations of each pipeline stage
-    for (let i = 0; i < stages.length; i++) {
-        const stage = stages[i];
-        
-        // Create stage node
-        const nodeGeometry = new THREE.BoxGeometry(stageSize, stageSize, stageSize);
-        const nodeMaterial = new THREE.MeshStandardMaterial({
-            color: stage.color,
-            roughness: 0.7,
-            metalness: 0.3
+    // Create stage indicators
+    stages.forEach((stage, index) => {
+        const stageIndicatorGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const stageIndicatorMaterial = new THREE.MeshStandardMaterial({
+            color: 0xFFFFFF,
+            emissive: color,
+            emissiveIntensity: 0.2,
+            transparent: true,
+            opacity: 0.7
         });
-        const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
-        node.position.x = -stageSpacing * 2 + i * stageSpacing;
-        group.add(node);
         
-        // Create connection to next stage
-        if (i < stages.length - 1) {
-            const connectionGeometry = new THREE.CylinderGeometry(0.05, 0.05, stageSpacing, 8);
-            const connectionMaterial = new THREE.MeshStandardMaterial({
-                color: 0xBDBDBD
+        const stageIndicator = new THREE.Mesh(stageIndicatorGeometry, stageIndicatorMaterial);
+        stageIndicator.position.x = (index - 2.5) * stageSpacing;
+        stageIndicator.position.y = 0;
+        stageObjects[stage] = stageIndicator;
+        group.add(stageIndicator);
+    });
+    
+    // Add control panel for pipeline demo
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'pipeline-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Pipeline Controls</h3>
+        <div class="control-group">
+            <h4>Current Stage</h4>
+            <div class="button-group">
+                <button id="stage-vertex" class="stage-button">Vertex</button>
+                <button id="stage-tessellation" class="stage-button">Tessellation</button>
+                <button id="stage-geometry" class="stage-button">Geometry</button>
+                <button id="stage-rasterization" class="stage-button">Rasterization</button>
+                <button id="stage-fragment" class="stage-button">Fragment</button>
+                <button id="stage-output" class="stage-button">Output</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Animation Speed</h4>
+            <input type="range" min="0.1" max="2" step="0.1" value="1" id="pipeline-speed-slider">
+        </div>
+        <div class="control-group">
+            <h4>Wireframe Mode</h4>
+            <button id="pipeline-wireframe-toggle">Toggle Wireframe</button>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('pipeline-controls')) {
+        // Stage buttons
+        const stageButtons = document.querySelectorAll('#pipeline-controls .stage-button');
+        stageButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const stageName = this.id.replace('stage-', '');
+                highlightStage(stageName);
             });
-            const connection = new THREE.Mesh(connectionGeometry, connectionMaterial);
-            connection.position.x = -stageSpacing * 2 + i * stageSpacing + stageSpacing / 2;
-            connection.rotation.z = Math.PI / 2;
-            group.add(connection);
+        });
+        
+        // Speed slider
+        const speedSlider = document.getElementById('pipeline-speed-slider');
+        speedSlider.addEventListener('input', function() {
+            group.animationSpeed = parseFloat(this.value);
+        });
+        
+        // Wireframe toggle
+        const wireframeToggle = document.getElementById('pipeline-wireframe-toggle');
+        wireframeToggle.addEventListener('click', function() {
+            pipelineModelMaterial.wireframe = !pipelineModelMaterial.wireframe;
+        });
+    }
+    
+    // Function to highlight a specific stage
+    function highlightStage(stageName) {
+        stages.forEach(stage => {
+            if (stageObjects[stage]) {
+                if (stage === stageName) {
+                    stageObjects[stage].material.emissiveIntensity = 0.8;
+                    stageObjects[stage].scale.set(1.3, 1.3, 1.3);
+                } else {
+                    stageObjects[stage].material.emissiveIntensity = 0.2;
+                    stageObjects[stage].scale.set(1, 1, 1);
+                }
+            }
+        });
+        
+        // Update model appearance based on stage
+        if (stageName === 'vertex') {
+            pipelineModelMaterial.wireframe = true;
+            pipelineModelMaterial.emissiveIntensity = 0.3;
+        } else if (stageName === 'tessellation') {
+            pipelineModelMaterial.wireframe = true;
+            pipelineModelMaterial.emissiveIntensity = 0.5;
+        } else if (stageName === 'geometry') {
+            pipelineModelMaterial.wireframe = true;
+            pipelineModelMaterial.emissiveIntensity = 0.7;
+        } else if (stageName === 'rasterization') {
+            pipelineModelMaterial.wireframe = false;
+            pipelineModelMaterial.emissiveIntensity = 0.3;
+        } else if (stageName === 'fragment') {
+            pipelineModelMaterial.wireframe = false;
+            pipelineModelMaterial.emissiveIntensity = 0.5;
+        } else if (stageName === 'output') {
+            pipelineModelMaterial.wireframe = false;
+            pipelineModelMaterial.emissiveIntensity = 0.8;
         }
     }
     
-    // Add animation update function
-    group.update = function(time, delta) {
-        // Move the model through the pipeline
-        model.position.x = -stageSpacing * 3 + ((time * 0.5) % (stageSpacing * 6));
-        
-        // Reset position after completing the pipeline
-        if (model.position.x > stageSpacing * 3) {
-            model.position.x = -stageSpacing * 3;
+    // Store controls reference for show/hide
+    stationControls.pipeline = {
+        show: function() {
+            const controls = document.getElementById('pipeline-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('pipeline-controls');
+            if (controls) controls.style.display = 'none';
         }
-        
-        // Rotate model as it moves
-        model.rotation.x += delta * 2;
-        model.rotation.y += delta * 3;
     };
     
+    // Set initial animation speed
+    group.animationSpeed = 1.0;
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Animate based on time and speed
+        const speed = this.animationSpeed || 1.0;
+        const animTime = time * speed;
+        
+        // Move the model along the pipeline stages
+        const position = (Math.sin(animTime * 0.5) + 1) / 2; // 0 to 1
+        const stagePosition = position * (stages.length - 1); // 0 to stages.length-1
+        const stageIndex = Math.min(Math.floor(stagePosition), stages.length - 1);
+        
+        // Position the model
+        pipelineModel.position.x = (stagePosition - 2.5) * stageSpacing;
+        
+        // Rotate model as it moves
+        pipelineModel.rotation.x += delta * 2;
+        pipelineModel.rotation.y += delta * 3;
+        
+        // Highlight the current stage
+        highlightStage(stages[stageIndex]);
+    };
+    
+    // Return group without adding to scene
     return group;
 }
 
@@ -634,6 +792,7 @@ function createLightingDemo(position, color) {
         lightSphere.position.copy(pointLight.position);
     };
     
+    // Return group without adding to scene
     return group;
 }
 
@@ -908,6 +1067,7 @@ function createTexturingDemo(position, color) {
         cube.rotation.y += delta * 0.2;
     };
     
+    // Return group without adding to scene
     return group;
 }
 
@@ -920,63 +1080,126 @@ function createGeometryDemo(position, color) {
     group.position.copy(position);
     group.position.y += 3; // Raise above platform
     
-    // Create an array of different geometries
-    const geometries = [
-        new THREE.BoxGeometry(1, 1, 1),
-        new THREE.SphereGeometry(0.7, 16, 16),
-        new THREE.ConeGeometry(0.7, 1.5, 16),
-        new THREE.TorusGeometry(0.7, 0.3, 16, 32),
-        new THREE.TetrahedronGeometry(0.8),
-        new THREE.OctahedronGeometry(0.8)
-    ];
+    // Create different types of geometries
+    const geometryTypes = {
+        box: new THREE.BoxGeometry(1, 1, 1),
+        sphere: new THREE.SphereGeometry(0.7, 32, 32),
+        torus: new THREE.TorusGeometry(0.7, 0.3, 16, 100),
+        cone: new THREE.ConeGeometry(0.7, 1.2, 32),
+        cylinder: new THREE.CylinderGeometry(0.6, 0.6, 1.4, 32)
+    };
     
-    // Create materials for the geometries
-    const materials = [
-        new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 0.5 }),
-        new THREE.MeshStandardMaterial({ color: 0x2196F3, roughness: 0.5 }),
-        new THREE.MeshStandardMaterial({ color: 0xFF9800, roughness: 0.5 }),
-        new THREE.MeshStandardMaterial({ color: 0x9C27B0, roughness: 0.5 }),
-        new THREE.MeshStandardMaterial({ color: 0xF44336, roughness: 0.5 }),
-        new THREE.MeshStandardMaterial({ color: 0xFFEB3B, roughness: 0.5 })
-    ];
+    // Use a shared material for all geometries
+    const geometryMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.5,
+        metalness: 0.2
+    });
     
-    // Create meshes for each geometry and position them in a circle
-    const meshes = [];
-    const radius = 2;
+    // Create the initial mesh with a box geometry
+    const mesh = new THREE.Mesh(geometryTypes.box, geometryMaterial);
+    group.add(mesh);
     
-    for (let i = 0; i < geometries.length; i++) {
-        const angle = (i / geometries.length) * Math.PI * 2;
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius;
+    // Variables to track current settings
+    let currentGeometry = 'box';
+    let wireframeEnabled = false;
+    let subdivisionLevel = 0;
+    
+    // Add control panel for geometry demo
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'geometry-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Geometry Controls</h3>
+        <div class="control-group">
+            <h4>Geometry Type</h4>
+            <div class="button-group">
+                <button id="geom-box" class="geom-button">Box</button>
+                <button id="geom-sphere" class="geom-button">Sphere</button>
+                <button id="geom-torus" class="geom-button">Torus</button>
+                <button id="geom-cone" class="geom-button">Cone</button>
+                <button id="geom-cylinder" class="geom-button">Cylinder</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Rendering Mode</h4>
+            <button id="geom-wireframe-toggle">Toggle Wireframe</button>
+        </div>
+        <div class="control-group">
+            <h4>Material Properties</h4>
+            <div class="slider-group">
+                <label>Roughness</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.5" id="geom-roughness-slider">
+            </div>
+            <div class="slider-group">
+                <label>Metalness</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.2" id="geom-metalness-slider">
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('geometry-controls')) {
+        // Geometry type buttons
+        const geomButtons = document.querySelectorAll('#geometry-controls .geom-button');
+        geomButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const geomType = this.id.replace('geom-', '');
+                changeGeometry(geomType);
+            });
+        });
         
-        const mesh = new THREE.Mesh(geometries[i], materials[i]);
-        mesh.position.set(x, 0, z);
+        // Wireframe toggle
+        const wireframeToggle = document.getElementById('geom-wireframe-toggle');
+        wireframeToggle.addEventListener('click', function() {
+            wireframeEnabled = !wireframeEnabled;
+            geometryMaterial.wireframe = wireframeEnabled;
+        });
         
-        group.add(mesh);
-        meshes.push(mesh);
+        // Material property sliders
+        const roughnessSlider = document.getElementById('geom-roughness-slider');
+        roughnessSlider.addEventListener('input', function() {
+            geometryMaterial.roughness = parseFloat(this.value);
+            geometryMaterial.needsUpdate = true;
+        });
+        
+        const metalnessSlider = document.getElementById('geom-metalness-slider');
+        metalnessSlider.addEventListener('input', function() {
+            geometryMaterial.metalness = parseFloat(this.value);
+            geometryMaterial.needsUpdate = true;
+        });
     }
     
-    // Add a light to illuminate the geometries
-    const light = new THREE.PointLight(0xFFFFFF, 1, 10);
-    light.position.set(0, 2, 0);
-    group.add(light);
+    // Function to change the geometry type
+    function changeGeometry(type) {
+        if (geometryTypes[type]) {
+            currentGeometry = type;
+            mesh.geometry = geometryTypes[type];
+        }
+    }
+    
+    // Store controls reference for show/hide
+    stationControls.geometry = {
+        show: function() {
+            const controls = document.getElementById('geometry-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('geometry-controls');
+            if (controls) controls.style.display = 'none';
+        }
+    };
     
     // Add animation update function
     group.update = function(time, delta) {
-        // Rotate each geometry differently
-        for (let i = 0; i < meshes.length; i++) {
-            meshes[i].rotation.x += delta * (0.5 + i * 0.1);
-            meshes[i].rotation.y += delta * (0.3 + i * 0.1);
-            
-            // Make geometries bob up and down
-            const bobHeight = Math.sin(time * (0.5 + i * 0.1)) * 0.2;
-            meshes[i].position.y = bobHeight;
-        }
-        
-        // Rotate the entire group slowly
-        group.rotation.y += delta * 0.1;
+        // Rotate the mesh
+        mesh.rotation.y += delta * 0.5;
+        mesh.rotation.x += delta * 0.2;
     };
     
+    // Return group without adding to scene
     return group;
 }
 
@@ -1152,6 +1375,7 @@ function createShaderDemo(position, color) {
         plane.rotation.y += delta * 0.2;
     };
     
+    // Return group without adding to scene
     return group;
 }
 
@@ -1299,6 +1523,7 @@ if (typeof createWorld !== 'function') {
     console.error('createWorld function is not properly defined in the global scope');
     // Try to explicitly expose it
     window.createWorld = createWorld;
+    window.initWorld = initWorld;
     window.createSkybox = createSkybox;
     window.createTerrain = createTerrain;
     window.checkStationProximity = checkStationProximity;
@@ -1306,17 +1531,4 @@ if (typeof createWorld !== 'function') {
     console.log('Functions explicitly exposed to window object');
 } else {
     console.log('createWorld function is properly defined in the global scope');
-}
-
-//=============================================================================
-// EXPORTS
-//=============================================================================
-
-// Export public functions and variables
-export {
-    initWorld,
-    updateWorld,
-    checkStationProximity,
-    learningStations,
-    terrain
-}; 
+} 

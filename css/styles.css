@@ -259,6 +259,17 @@ button:hover {
 
 /* Station interactive controls */
 .station-controls {
+    position: absolute;
+    top: 20%;
+    right: 300px;
+    background: rgba(20, 20, 20, 0.9);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 100;
+    width: 250px;
+    max-height: 500px;
+    overflow-y: auto;
     font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     border: 2px solid rgba(255, 255, 255, 0.2);
@@ -334,7 +345,7 @@ button:hover {
 }
 
 /* Texturing station specific controls */
-.texturing-controls {
+#texturing-controls {
     background: linear-gradient(to bottom, rgba(33, 150, 243, 0.85), rgba(13, 71, 161, 0.85));
     animation: textureGlow 3s infinite alternate;
 }
@@ -359,7 +370,7 @@ button:hover {
 }
 
 /* Shader station specific controls */
-.shader-controls {
+#shader-controls {
     background: linear-gradient(to bottom, rgba(156, 39, 176, 0.85), rgba(74, 20, 140, 0.85));
     animation: shaderGlow 3s infinite alternate;
 }
@@ -387,4 +398,86 @@ button:hover {
 
 .shader-controls .wave-count-btn:hover {
     transform: scale(1.15);
+}
+
+/* Pipeline station specific controls */
+#pipeline-controls {
+    background: linear-gradient(to bottom, rgba(76, 175, 80, 0.85), rgba(27, 94, 32, 0.85));
+    animation: pipelineGlow 3s infinite alternate;
+}
+
+@keyframes pipelineGlow {
+    from {
+        box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(76, 175, 80, 0.8);
+    }
+}
+
+.stage-button {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    margin: 3px;
+    font-size: 0.85em;
+    transition: all 0.2s ease;
+}
+
+.stage-button:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+/* Geometry station specific controls */
+#geometry-controls {
+    background: linear-gradient(to bottom, rgba(233, 30, 99, 0.85), rgba(136, 14, 79, 0.85));
+    animation: geometryGlow 3s infinite alternate;
+}
+
+@keyframes geometryGlow {
+    from {
+        box-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(233, 30, 99, 0.8);
+    }
+}
+
+.geom-button {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    margin: 3px;
+    font-size: 0.9em;
+    transition: all 0.2s ease;
+}
+
+.geom-button:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.05);
+}
+
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 10px 0;
+}
+
+.slider-group {
+    margin: 15px 0;
+}
+
+.slider-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.color-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin: 0 5px;
+    border: 2px solid rgba(255, 255, 255, 0.5);
 } 

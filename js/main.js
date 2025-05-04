@@ -63,7 +63,11 @@ function init() {
         }
         
         // create world
-        if (typeof createWorld === 'function') {
+        if (typeof initWorld === 'function') {
+            // Initialize the world with scene and camera references
+            initWorld(scene, camera);
+        } else if (typeof createWorld === 'function') {
+            // Fallback to old method if it exists
             createWorld();
         } else {
             console.error('missing world function');

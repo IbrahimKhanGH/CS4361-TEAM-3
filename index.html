@@ -128,12 +128,14 @@
                         loadScript('js/main.js', function() {
                             console.log('all scripts loaded, starting app');
                             
-                            // start the app
-                            if (typeof init === 'function') {
-                                init();
-                            } else {
-                                showError('Initialization function missing');
-                            }
+                            // start the app - use a timeout to ensure all globals are properly defined
+                            setTimeout(function() {
+                                if (typeof window.init === 'function') {
+                                    window.init();
+                                } else {
+                                    showError('Initialization function missing');
+                                }
+                            }, 100);
                         });
                     });
                 });
