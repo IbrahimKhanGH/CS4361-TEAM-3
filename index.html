@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Computer Graphics Learning Studio</title>
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="icon" href="assets/textures/logo.png" type="image/png">
     <!-- load external libraries first -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/examples/js/controls/PointerLockControls.js"></script>
@@ -44,12 +45,19 @@
         .control-button:hover {
             background: #3e8e41;
         }
+        .logo {
+            display: block;
+            margin: 0 auto 15px;
+            max-width: 120px;
+            height: auto;
+        }
     </style>
 </head>
 <body>
     <!-- loading screen -->
     <div id="loading-screen">
         <div class="loader"></div>
+        <img src="assets/textures/logo.png" alt="Graphics Studio Logo" class="logo">
         <h2>Loading Graphics Studio...</h2>
         <p>Preparing 3D environment and learning materials</p>
         <div id="loading-progress">
@@ -62,6 +70,7 @@
     <!-- instructions overlay -->
     <div id="instructions" style="display: none;">
         <div class="instruction-content">
+            <img src="assets/textures/logo.png" alt="Graphics Studio Logo" class="logo">
             <h1>Computer Graphics Learning Studio</h1>
             <p>Explore a 3D world to learn about computer graphics concepts</p>
             <ul>
@@ -89,6 +98,7 @@
 
     <!-- sidebar ui panel -->
     <div id="ui-panel">
+        <img src="assets/textures/logo.png" alt="Graphics Studio Logo" class="logo">
         <h1>Graphics Learning Studio</h1>
         <div id="main-content">
             <p>Welcome to the Computer Graphics Learning Studio! This interactive environment helps you understand fundamental concepts in computer graphics.</p>
