@@ -271,6 +271,11 @@ function createStation(name, position, color) {
                 this.demoObject.init();
             }
             
+            // Set up interactive controls if the demo supports it
+            if (this.demoObject.setupControls) {
+                this.demoObject.setupControls();
+            }
+            
             // Set as current station
             currentStation = this;
         },
@@ -282,6 +287,11 @@ function createStation(name, position, color) {
             
             // Hide demo object
             this.demoObject.visible = false;
+            
+            // Remove interactive controls if the demo supports it
+            if (this.demoObject.removeControls) {
+                this.demoObject.removeControls();
+            }
         }
     };
 }
@@ -459,6 +469,146 @@ function createLightingDemo(position, color) {
     lightSphere.position.copy(demoLight.position);
     lightingGroup.add(lightSphere);
     
+    // Create interactive controls - store elements so they can be shown/hidden
+    lightingGroup.controlsElements = [];
+    
+    // Setup controls for when station is activated
+    lightingGroup.setupControls = function() {
+        // Remove any existing controls first
+        this.removeControls();
+        
+        // Create controls container
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'station-controls lighting-controls';
+        controlsContainer.style.position = 'absolute';
+        controlsContainer.style.bottom = '20px';
+        controlsContainer.style.left = '50%';
+        controlsContainer.style.transform = 'translateX(-50%)';
+        controlsContainer.style.padding = '10px';
+        controlsContainer.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        controlsContainer.style.borderRadius = '10px';
+        controlsContainer.style.color = 'white';
+        controlsContainer.style.fontFamily = 'Arial, sans-serif';
+        controlsContainer.style.textAlign = 'center';
+        controlsContainer.style.zIndex = '1000';
+        document.body.appendChild(controlsContainer);
+        this.controlsElements.push(controlsContainer);
+        
+        // Add title
+        const title = document.createElement('h3');
+        title.textContent = 'Light Magic!';
+        title.style.margin = '0 0 10px 0';
+        title.style.fontSize = '18px';
+        controlsContainer.appendChild(title);
+        
+        // Color control section
+        const colorSection = document.createElement('div');
+        colorSection.style.marginBottom = '15px';
+        controlsContainer.appendChild(colorSection);
+        
+        // Color buttons with kid-friendly names
+        const colorTitle = document.createElement('div');
+        colorTitle.textContent = 'Choose a Light Color:';
+        colorTitle.style.marginBottom = '5px';
+        colorSection.appendChild(colorTitle);
+        
+        const colorButtons = document.createElement('div');
+        colorButtons.style.display = 'flex';
+        colorButtons.style.justifyContent = 'center';
+        colorButtons.style.gap = '10px';
+        colorSection.appendChild(colorButtons);
+        
+        // Define kid-friendly colors
+        const lightColors = [
+            { name: 'Sunshine', value: '#FFF176' },
+            { name: 'Blueberry', value: '#42A5F5' },
+            { name: 'Watermelon', value: '#EF5350' },
+            { name: 'Lime', value: '#66BB6A' },
+            { name: 'Grape', value: '#AB47BC' }
+        ];
+        
+        lightColors.forEach(colorInfo => {
+            const colorBtn = document.createElement('button');
+            colorBtn.style.width = '20px';
+            colorBtn.style.height = '20px';
+            colorBtn.style.backgroundColor = colorInfo.value;
+            colorBtn.style.border = 'none';
+            colorBtn.style.borderRadius = '50%';
+            colorBtn.style.cursor = 'pointer';
+            colorBtn.title = colorInfo.name;
+            
+            colorBtn.addEventListener('click', () => {
+                const newColor = new THREE.Color(colorInfo.value);
+                demoLight.color.set(newColor);
+                lightSphereMaterial.color.set(newColor);
+                lightSphereMaterial.emissive.set(newColor);
+            });
+            
+            colorButtons.appendChild(colorBtn);
+        });
+        
+        // Light intensity slider
+        const intensitySection = document.createElement('div');
+        intensitySection.style.marginBottom = '15px';
+        controlsContainer.appendChild(intensitySection);
+        
+        const intensityTitle = document.createElement('div');
+        intensityTitle.textContent = 'Light Brightness:';
+        intensityTitle.style.marginBottom = '5px';
+        intensitySection.appendChild(intensityTitle);
+        
+        const intensitySlider = document.createElement('input');
+        intensitySlider.type = 'range';
+        intensitySlider.min = '0';
+        intensitySlider.max = '2';
+        intensitySlider.step = '0.1';
+        intensitySlider.value = '1';
+        intensitySlider.style.width = '100%';
+        intensitySlider.style.accentColor = '#FFC107';
+        intensitySection.appendChild(intensitySlider);
+        
+        intensitySlider.addEventListener('input', () => {
+            demoLight.intensity = parseFloat(intensitySlider.value);
+        });
+        
+        // Material shininess slider
+        const shininessSection = document.createElement('div');
+        controlsContainer.appendChild(shininessSection);
+        
+        const shininessTitle = document.createElement('div');
+        shininessTitle.textContent = 'Object Shininess:';
+        shininessTitle.style.marginBottom = '5px';
+        shininessSection.appendChild(shininessTitle);
+        
+        const shininessSlider = document.createElement('input');
+        shininessSlider.type = 'range';
+        shininessSlider.min = '0';
+        shininessSlider.max = '1';
+        shininessSlider.step = '0.05';
+        shininessSlider.value = sphere.material.roughness;
+        shininessSlider.style.width = '100%';
+        shininessSlider.style.accentColor = '#FFC107';
+        shininessSection.appendChild(shininessSlider);
+        
+        shininessSlider.addEventListener('input', () => {
+            const shininess = 1 - parseFloat(shininessSlider.value);  // Invert for intuitive control
+            sphere.material.roughness = parseFloat(shininessSlider.value);
+            sphere.material.metalness = shininess * 0.7; // Scale to reasonable metalness
+        });
+    };
+    
+    // Method to remove controls
+    lightingGroup.removeControls = function() {
+        if (this.controlsElements) {
+            this.controlsElements.forEach(element => {
+                if (element && element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
+            });
+            this.controlsElements = [];
+        }
+    };
+    
     // Add animation function to the group
     lightingGroup.update = function(time) {
         // Orbit the light around the sphere
@@ -486,39 +636,294 @@ function createTexturingDemo(position, color) {
         roughness: 0.8
     });
     
-    // Try to load a texture
-    try {
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.setPath('assets/textures/');
+    // Create textures array to store loaded textures
+    const textures = [];
+    let currentTextureIndex = 0;
+    
+    // Create procedural textures - no need to load external files
+    const textureSize = 256;
+    
+    // Define texture types with colors
+    const textureTypes = [
+        { name: 'Bricks', color: new THREE.Color(0xbb4444) },
+        { name: 'Wood', color: new THREE.Color(0x8b4513) },
+        { name: 'Stone', color: new THREE.Color(0x888888) },
+        { name: 'Grass', color: new THREE.Color(0x44aa44) },
+        { name: 'Metal', color: new THREE.Color(0x999999) }
+    ];
+    
+    // Create a procedural texture for each type
+    textureTypes.forEach((texInfo, index) => {
+        // Create canvas for the texture
+        const canvas = document.createElement('canvas');
+        canvas.width = textureSize;
+        canvas.height = textureSize;
+        const ctx = canvas.getContext('2d');
         
-        // Placeholder for actual textures
-        // In a real implementation, you would have these files
-        textureLoader.load('demo_texture.jpg',
-            // Success callback
-            function(texture) {
-                cubeMaterial.map = texture;
-                cubeMaterial.needsUpdate = true;
-            },
-            // Progress callback
-            undefined,
-            // Error callback
-            function(err) {
-                console.log('Error loading demo texture, using fallback color');
-            }
-        );
-    } catch (error) {
-        console.log('Error loading texture, using fallback color');
-    }
+        // Draw base color
+        ctx.fillStyle = `rgb(${Math.floor(texInfo.color.r * 255)}, ${Math.floor(texInfo.color.g * 255)}, ${Math.floor(texInfo.color.b * 255)})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Add texture pattern based on type
+        switch(texInfo.name) {
+            case 'Bricks':
+                // Simple brick pattern
+                const brickWidth = 40;
+                const brickHeight = 20;
+                ctx.fillStyle = '#aa3333';
+                for (let y = 0; y < canvas.height; y += brickHeight) {
+                    const offset = (Math.floor(y / brickHeight) % 2) * (brickWidth / 2);
+                    for (let x = 0; x < canvas.width; x += brickWidth) {
+                        ctx.fillRect(x + offset, y, brickWidth - 4, brickHeight - 4);
+                    }
+                }
+                break;
+                
+            case 'Wood':
+                // Wood grain
+                for (let i = 0; i < 20; i++) {
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.moveTo(0, Math.random() * canvas.height);
+                    ctx.lineTo(canvas.width, Math.random() * canvas.height);
+                    ctx.stroke();
+                }
+                break;
+                
+            case 'Stone':
+                // Stone texture
+                for (let i = 0; i < 50; i++) {
+                    ctx.fillStyle = `rgba(100, 100, 100, ${Math.random() * 0.2})`;
+                    ctx.beginPath();
+                    ctx.arc(
+                        Math.random() * canvas.width,
+                        Math.random() * canvas.height,
+                        Math.random() * 20 + 5,
+                        0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+                break;
+                
+            case 'Grass':
+                // Grass texture
+                for (let i = 0; i < 300; i++) {
+                    ctx.strokeStyle = `rgb(${20 + Math.random() * 20}, ${100 + Math.random() * 40}, ${20 + Math.random() * 20})`;
+                    ctx.beginPath();
+                    const x = Math.random() * canvas.width;
+                    const y = Math.random() * canvas.height;
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + (Math.random() * 10 - 5), y - Math.random() * 10);
+                    ctx.stroke();
+                }
+                break;
+                
+            case 'Metal':
+                // Metal texture
+                ctx.fillStyle = '#888888';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Add highlights
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Add scratches
+                for (let i = 0; i < 20; i++) {
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.stroke();
+                }
+                break;
+        }
+        
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        
+        // Add to textures array
+        textures.push({
+            texture: texture,
+            name: texInfo.name
+        });
+        
+        // Apply first texture to cube
+        if (index === 0) {
+            cubeMaterial.map = texture;
+            cubeMaterial.needsUpdate = true;
+        }
+    });
     
     // Create a cube with the texture or fallback material
     const cubeGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
     const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
     texturingGroup.add(cube);
     
+    // Store cube reference for controls
+    texturingGroup.cube = cube;
+
+    // Create interactive controls - store elements so they can be shown/hidden
+    texturingGroup.controlsElements = [];
+    
+    // Setup controls for when station is activated
+    texturingGroup.setupControls = function() {
+        // Remove any existing controls first
+        this.removeControls();
+        
+        // Create controls container
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'station-controls texturing-controls';
+        controlsContainer.style.position = 'absolute';
+        controlsContainer.style.bottom = '20px';
+        controlsContainer.style.left = '50%';
+        controlsContainer.style.transform = 'translateX(-50%)';
+        controlsContainer.style.padding = '10px';
+        controlsContainer.style.backgroundColor = 'rgba(33, 150, 243, 0.7)';
+        controlsContainer.style.borderRadius = '10px';
+        controlsContainer.style.color = 'white';
+        controlsContainer.style.fontFamily = 'Arial, sans-serif';
+        controlsContainer.style.textAlign = 'center';
+        controlsContainer.style.zIndex = '1000';
+        document.body.appendChild(controlsContainer);
+        this.controlsElements.push(controlsContainer);
+        
+        // Add title
+        const title = document.createElement('h3');
+        title.textContent = 'Texture Explorer!';
+        title.style.margin = '0 0 10px 0';
+        title.style.fontSize = '18px';
+        controlsContainer.appendChild(title);
+
+        // Texture selection
+        const textureSection = document.createElement('div');
+        textureSection.style.marginBottom = '15px';
+        controlsContainer.appendChild(textureSection);
+        
+        const textureTitle = document.createElement('div');
+        textureTitle.textContent = 'Choose a Texture:';
+        textureTitle.style.marginBottom = '5px';
+        textureSection.appendChild(textureTitle);
+        
+        // Create buttons for different textures
+        const textureButtonsContainer = document.createElement('div');
+        textureButtonsContainer.style.display = 'flex';
+        textureButtonsContainer.style.justifyContent = 'center';
+        textureButtonsContainer.style.flexWrap = 'wrap';
+        textureButtonsContainer.style.gap = '5px';
+        textureSection.appendChild(textureButtonsContainer);
+        
+        const applyTexture = (index) => {
+            if (textures[index]) {
+                cube.material.map = textures[index].texture;
+                cube.material.needsUpdate = true;
+                currentTextureIndex = index;
+                
+                // Update active button state
+                document.querySelectorAll('.texture-btn').forEach((btn, i) => {
+                    btn.style.border = i === index ? '2px solid white' : 'none';
+                    btn.style.transform = i === index ? 'scale(1.1)' : 'scale(1)';
+                });
+            }
+        };
+        
+        // Textures defined earlier in our load section
+        const textureTypes = ['Bricks', 'Wood', 'Stone', 'Grass', 'Metal'];
+        
+        textureTypes.forEach((textureName, index) => {
+            const textureBtn = document.createElement('button');
+            textureBtn.className = 'texture-btn';
+            textureBtn.textContent = textureName;
+            textureBtn.style.padding = '6px 10px';
+            textureBtn.style.backgroundColor = index === 0 ? '#1976D2' : '#2196F3';
+            textureBtn.style.border = index === 0 ? '2px solid white' : 'none';
+            
+            textureBtn.addEventListener('click', () => {
+                applyTexture(index);
+            });
+            
+            textureButtonsContainer.appendChild(textureBtn);
+        });
+        
+        // Texture repeat control
+        const repeatSection = document.createElement('div');
+        repeatSection.style.marginBottom = '15px';
+        controlsContainer.appendChild(repeatSection);
+        
+        const repeatTitle = document.createElement('div');
+        repeatTitle.textContent = 'Texture Repeat:';
+        repeatTitle.style.marginBottom = '5px';
+        repeatSection.appendChild(repeatTitle);
+        
+        const repeatSlider = document.createElement('input');
+        repeatSlider.type = 'range';
+        repeatSlider.min = '1';
+        repeatSlider.max = '5';
+        repeatSlider.step = '1';
+        repeatSlider.value = '1';
+        repeatSlider.style.width = '100%';
+        repeatSlider.style.accentColor = '#2196F3';
+        repeatSection.appendChild(repeatSlider);
+        
+        repeatSlider.addEventListener('input', () => {
+            const repeatValue = parseInt(repeatSlider.value);
+            textures.forEach(texItem => {
+                texItem.texture.repeat.set(repeatValue, repeatValue);
+                texItem.texture.needsUpdate = true;
+            });
+        });
+        
+        // Rotation control
+        const rotationSection = document.createElement('div');
+        controlsContainer.appendChild(rotationSection);
+        
+        const rotationTitle = document.createElement('div');
+        rotationTitle.textContent = 'Spin Speed:';
+        rotationTitle.style.marginBottom = '5px';
+        rotationSection.appendChild(rotationTitle);
+        
+        const rotationSlider = document.createElement('input');
+        rotationSlider.type = 'range';
+        rotationSlider.min = '0';
+        rotationSlider.max = '2';
+        rotationSlider.step = '0.1';
+        rotationSlider.value = '0.5';
+        rotationSlider.style.width = '100%';
+        rotationSlider.style.accentColor = '#2196F3';
+        rotationSection.appendChild(rotationSlider);
+        
+        // Store the rotation speed
+        this.rotationSpeed = parseFloat(rotationSlider.value);
+        
+        rotationSlider.addEventListener('input', () => {
+            this.rotationSpeed = parseFloat(rotationSlider.value);
+        });
+    };
+    
+    // Method to remove controls
+    texturingGroup.removeControls = function() {
+        if (this.controlsElements) {
+            this.controlsElements.forEach(element => {
+                if (element && element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
+            });
+            this.controlsElements = [];
+        }
+    };
+    
+    // Default rotation speed
+    texturingGroup.rotationSpeed = 0.5;
+    
     // Add animation function to the group
     texturingGroup.update = function(time) {
         // Rotate the cube to show all sides
-        cube.rotation.y = time * 0.5;
+        cube.rotation.y = time * this.rotationSpeed;
         cube.rotation.x = Math.sin(time) * 0.2;
     };
     
@@ -598,7 +1003,10 @@ function createShaderDemo(position, color) {
     const customShaderMaterial = new THREE.ShaderMaterial({
         uniforms: {
             time: { value: 0.0 },
-            color: { value: new THREE.Color(color) }
+            color: { value: new THREE.Color(color) },
+            waveSpeed: { value: 2.0 },
+            waveCount: { value: 8.0 },
+            colorMix: { value: 0.5 }
         },
         vertexShader: `
             varying vec2 vUv;
@@ -610,6 +1018,9 @@ function createShaderDemo(position, color) {
         fragmentShader: `
             uniform float time;
             uniform vec3 color;
+            uniform float waveSpeed;
+            uniform float waveCount;
+            uniform float colorMix;
             varying vec2 vUv;
             
             void main() {
@@ -617,8 +1028,8 @@ function createShaderDemo(position, color) {
                 float r = length(p);
                 float a = atan(p.y, p.x);
                 
-                float f = sin(a * 8.0 + time * 2.0) * 0.5 + 0.5;
-                vec3 finalColor = mix(color, vec3(1.0), f * r);
+                float f = sin(a * waveCount + time * waveSpeed) * 0.5 + 0.5;
+                vec3 finalColor = mix(color, vec3(1.0), f * r * colorMix);
                 
                 gl_FragColor = vec4(finalColor, 1.0);
             }
@@ -629,6 +1040,183 @@ function createShaderDemo(position, color) {
     const planeGeometry = new THREE.PlaneGeometry(2, 2, 32, 32);
     const shaderPlane = new THREE.Mesh(planeGeometry, customShaderMaterial);
     shaderGroup.add(shaderPlane);
+    
+    // Store references for controls
+    shaderGroup.material = customShaderMaterial;
+    
+    // Create interactive controls - store elements so they can be shown/hidden
+    shaderGroup.controlsElements = [];
+    
+    // Setup controls for when station is activated
+    shaderGroup.setupControls = function() {
+        // Remove any existing controls first
+        this.removeControls();
+        
+        // Create controls container
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'station-controls shader-controls';
+        controlsContainer.style.position = 'absolute';
+        controlsContainer.style.bottom = '20px';
+        controlsContainer.style.left = '50%';
+        controlsContainer.style.transform = 'translateX(-50%)';
+        controlsContainer.style.padding = '10px';
+        controlsContainer.style.backgroundColor = 'rgba(156, 39, 176, 0.7)';
+        controlsContainer.style.borderRadius = '10px';
+        controlsContainer.style.color = 'white';
+        controlsContainer.style.fontFamily = 'Arial, sans-serif';
+        controlsContainer.style.textAlign = 'center';
+        controlsContainer.style.zIndex = '1000';
+        controlsContainer.style.maxWidth = '300px';
+        document.body.appendChild(controlsContainer);
+        this.controlsElements.push(controlsContainer);
+        
+        // Add title
+        const title = document.createElement('h3');
+        title.textContent = 'Shader Magic!';
+        title.style.margin = '0 0 10px 0';
+        title.style.fontSize = '18px';
+        controlsContainer.appendChild(title);
+        
+        // Color control section
+        const colorSection = document.createElement('div');
+        colorSection.style.marginBottom = '15px';
+        controlsContainer.appendChild(colorSection);
+        
+        const colorTitle = document.createElement('div');
+        colorTitle.textContent = 'Magic Color:';
+        colorTitle.style.marginBottom = '5px';
+        colorSection.appendChild(colorTitle);
+        
+        const colorButtons = document.createElement('div');
+        colorButtons.style.display = 'flex';
+        colorButtons.style.justifyContent = 'center';
+        colorButtons.style.gap = '10px';
+        colorSection.appendChild(colorButtons);
+        
+        // Define fun colors
+        const shaderColors = [
+            { name: 'Purple', value: '#9C27B0' },
+            { name: 'Fire', value: '#FF5722' },
+            { name: 'Ocean', value: '#03A9F4' },
+            { name: 'Emerald', value: '#4CAF50' },
+            { name: 'Gold', value: '#FFC107' }
+        ];
+        
+        shaderColors.forEach(colorInfo => {
+            const colorBtn = document.createElement('button');
+            colorBtn.style.width = '20px';
+            colorBtn.style.height = '20px';
+            colorBtn.style.backgroundColor = colorInfo.value;
+            colorBtn.style.border = 'none';
+            colorBtn.style.borderRadius = '50%';
+            colorBtn.style.cursor = 'pointer';
+            colorBtn.title = colorInfo.name;
+            
+            colorBtn.addEventListener('click', () => {
+                const newColor = new THREE.Color(colorInfo.value);
+                customShaderMaterial.uniforms.color.value = newColor;
+            });
+            
+            colorButtons.appendChild(colorBtn);
+        });
+        
+        // Wave speed control
+        const speedSection = document.createElement('div');
+        speedSection.style.marginBottom = '15px';
+        controlsContainer.appendChild(speedSection);
+        
+        const speedTitle = document.createElement('div');
+        speedTitle.textContent = 'Wave Speed:';
+        speedTitle.style.marginBottom = '5px';
+        speedSection.appendChild(speedTitle);
+        
+        const speedSlider = document.createElement('input');
+        speedSlider.type = 'range';
+        speedSlider.min = '0.5';
+        speedSlider.max = '5';
+        speedSlider.step = '0.5';
+        speedSlider.value = customShaderMaterial.uniforms.waveSpeed.value;
+        speedSlider.style.width = '100%';
+        speedSlider.style.accentColor = '#9C27B0';
+        speedSection.appendChild(speedSlider);
+        
+        speedSlider.addEventListener('input', () => {
+            customShaderMaterial.uniforms.waveSpeed.value = parseFloat(speedSlider.value);
+        });
+        
+        // Wave count control
+        const waveSection = document.createElement('div');
+        waveSection.style.marginBottom = '15px';
+        controlsContainer.appendChild(waveSection);
+        
+        const waveTitle = document.createElement('div');
+        waveTitle.textContent = 'Wave Count:';
+        waveTitle.style.marginBottom = '5px';
+        waveSection.appendChild(waveTitle);
+        
+        const waveButtons = document.createElement('div');
+        waveButtons.style.display = 'flex';
+        waveButtons.style.justifyContent = 'center';
+        waveButtons.style.gap = '5px';
+        waveSection.appendChild(waveButtons);
+        
+        // Wave count buttons for kids (simple numbered buttons)
+        [3, 6, 9, 12, 15].forEach(count => {
+            const waveBtn = document.createElement('button');
+            waveBtn.textContent = count;
+            waveBtn.style.padding = '5px 10px';
+            waveBtn.style.backgroundColor = count === 8 ? '#7B1FA2' : '#9C27B0';
+            waveBtn.style.minWidth = '40px';
+            
+            waveBtn.addEventListener('click', () => {
+                customShaderMaterial.uniforms.waveCount.value = count;
+                
+                // Update active button state
+                document.querySelectorAll('.wave-count-btn').forEach(btn => {
+                    btn.style.backgroundColor = '#9C27B0';
+                });
+                waveBtn.style.backgroundColor = '#7B1FA2';
+            });
+            
+            waveBtn.className = 'wave-count-btn';
+            waveButtons.appendChild(waveBtn);
+        });
+        
+        // Color blend control
+        const blendSection = document.createElement('div');
+        controlsContainer.appendChild(blendSection);
+        
+        const blendTitle = document.createElement('div');
+        blendTitle.textContent = 'Color Blend:';
+        blendTitle.style.marginBottom = '5px';
+        blendSection.appendChild(blendTitle);
+        
+        const blendSlider = document.createElement('input');
+        blendSlider.type = 'range';
+        blendSlider.min = '0';
+        blendSlider.max = '1';
+        blendSlider.step = '0.1';
+        blendSlider.value = customShaderMaterial.uniforms.colorMix.value;
+        blendSlider.style.width = '100%';
+        blendSlider.style.accentColor = '#9C27B0';
+        blendSection.appendChild(blendSlider);
+        
+        blendSlider.addEventListener('input', () => {
+            customShaderMaterial.uniforms.colorMix.value = parseFloat(blendSlider.value);
+        });
+    };
+    
+    // Method to remove controls
+    shaderGroup.removeControls = function() {
+        if (this.controlsElements) {
+            this.controlsElements.forEach(element => {
+                if (element && element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
+            });
+            this.controlsElements = [];
+        }
+    };
     
     // Add animation function to the group
     shaderGroup.update = function(time) {

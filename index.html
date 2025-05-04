@@ -9,33 +9,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/examples/js/controls/PointerLockControls.js"></script>
     <style>
-        #debug-panel {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            padding: 10px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 12px;
-            max-width: 300px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 1000;
-        }
-        #debug-toggle {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            cursor: pointer;
-            z-index: 1001;
-        }
         #loading-progress {
             width: 80%;
             height: 20px;
@@ -77,63 +50,9 @@
         .control-button:hover {
             background: #3e8e41;
         }
-        #emergency-start {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 10px 15px;
-            cursor: pointer;
-            z-index: 9999;
-            font-weight: bold;
-        }
-        #function-status {
-            margin-top: 10px;
-            font-family: monospace;
-            font-size: 12px;
-            color: #ccc;
-            text-align: left;
-            max-height: 100px;
-            overflow-y: auto;
-        }
-        #pointer-lock-bypass {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: #ff9800;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 10px 15px;
-            cursor: pointer;
-            z-index: 9999;
-            font-weight: bold;
-        }
-        #pointer-lock-status {
-            position: fixed;
-            top: 60px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-size: 12px;
-            z-index: 9998;
-        }
     </style>
 </head>
 <body>
-    <!-- Emergency start button that's always visible -->
-    <button id="emergency-start">EMERGENCY START</button>
-    
-    <!-- Pointer lock bypass button -->
-    <button id="pointer-lock-bypass">FORCE POINTER LOCK</button>
-    <div id="pointer-lock-status">Pointer Lock: Waiting</div>
-
     <div id="loading-screen">
         <div class="loader"></div>
         <h2>Loading Graphics Studio...</h2>
@@ -143,12 +62,6 @@
         </div>
         <div id="loading-status">Initializing...</div>
         <div id="error-message"></div>
-        <div id="function-status"></div>
-        <div class="control-buttons">
-            <button id="skip-loading" class="control-button">Skip Loading</button>
-            <button id="reload-page" class="control-button">Reload Page</button>
-            <button id="check-functions" class="control-button">Check Functions</button>
-        </div>
     </div>
 
     <div id="instructions" style="display: none;">
@@ -197,18 +110,6 @@
                 <p>• Exit: ESC</p>
                 <p>• Toggle Info: Tab key or 'i' button</p>
             </div>
-        </div>
-    </div>
-    
-    <!-- Debug Panel -->
-    <button id="debug-toggle">Debug</button>
-    <div id="debug-panel" style="display: none;">
-        <h3>Debug Information</h3>
-        <div id="debug-info">Loading...</div>
-        <div style="margin-top: 10px;">
-            <button id="force-start" class="control-button">Force Start</button>
-            <button id="reset-camera" class="control-button">Reset Camera</button>
-            <button id="check-functions-debug" class="control-button">Check Functions</button>
         </div>
     </div>
     
@@ -352,47 +253,6 @@
                 window.checkRequiredFunctions();
             });
             
-            // Emergency start button
-            document.getElementById('emergency-start').addEventListener('click', function() {
-                console.log('Emergency start button clicked');
-                
-                // Hide all UI elements
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('instructions').style.display = 'none';
-                
-                // Force initialization
-                if (!window.appInitialized) {
-                    console.log('Emergency initialization');
-                    
-                    // Clear any existing canvas container
-                    const container = document.getElementById('canvas-container');
-                    if (container) {
-                        container.innerHTML = '';
-                    }
-                    
-                    // Initialize the app
-                    if (typeof init === 'function') {
-                        init();
-                    } else {
-                        console.error('Init function not found for emergency start');
-                        showError('Init function not found. Try reloading the page.');
-                        return;
-                    }
-                }
-                
-                // Wait a moment for initialization to complete
-                setTimeout(function() {
-                    console.log('Emergency pointer lock attempt');
-                    forcePointerLock();
-                }, 500);
-            });
-            
-            // Pointer lock bypass button
-            document.getElementById('pointer-lock-bypass').addEventListener('click', function() {
-                console.log('Force pointer lock button clicked');
-                forcePointerLock();
-            });
-            
             // Start experience button in instructions
             const startExperienceButton = document.getElementById('start-experience');
             if (startExperienceButton) {
@@ -504,91 +364,6 @@
                 updatePointerLockStatus('Error: ' + (event.message || 'Unknown error'));
                 console.error('Pointer lock error:', event);
             });
-            
-            // Debug panel toggle
-            document.getElementById('debug-toggle').addEventListener('click', function() {
-                const debugPanel = document.getElementById('debug-panel');
-                if (debugPanel.style.display === 'none') {
-                    debugPanel.style.display = 'block';
-                    updateDebugInfo();
-                } else {
-                    debugPanel.style.display = 'none';
-                }
-            });
-            
-            // Force start button
-            document.getElementById('force-start').addEventListener('click', function() {
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('instructions').style.display = 'none';
-                forcePointerLock();
-            });
-            
-            // Reset camera button
-            document.getElementById('reset-camera').addEventListener('click', function() {
-                if (typeof camera !== 'undefined') {
-                    camera.position.set(0, 5, 20);
-                    camera.lookAt(0, 0, 0);
-                    console.log('Camera reset to position:', camera.position);
-                }
-            });
-            
-            // Check functions button in debug panel
-            document.getElementById('check-functions-debug').addEventListener('click', function() {
-                window.checkRequiredFunctions();
-                
-                // Also update debug info with function status
-                const debugInfo = document.getElementById('debug-info');
-                if (debugInfo) {
-                    let info = debugInfo.innerHTML;
-                    info += '<br><br><strong>Function Status:</strong><br>';
-                    info += 'createWorld: ' + (typeof createWorld === 'function' ? '✓' : '✗') + '<br>';
-                    info += 'initFirstPersonControls: ' + (typeof initFirstPersonControls === 'function' ? '✓' : '✗') + '<br>';
-                    debugInfo.innerHTML = info;
-                }
-            });
-            
-            // Update debug info periodically
-            function updateDebugInfo() {
-                if (document.getElementById('debug-panel').style.display === 'none') return;
-                
-                const debugInfo = document.getElementById('debug-info');
-                let info = '';
-                
-                // Check if key objects exist
-                info += 'THREE: ' + (typeof THREE !== 'undefined' ? '✓' : '✗') + '<br>';
-                info += 'PointerLockControls: ' + (typeof THREE !== 'undefined' && typeof THREE.PointerLockControls !== 'undefined' ? '✓' : '✗') + '<br>';
-                info += 'scene: ' + (typeof scene !== 'undefined' ? '✓' : '✗') + '<br>';
-                info += 'camera: ' + (typeof camera !== 'undefined' ? '✓' : '✗') + '<br>';
-                info += 'controls: ' + (typeof controls !== 'undefined' ? '✓' : '✗') + '<br>';
-                info += 'renderer: ' + (typeof renderer !== 'undefined' ? '✓' : '✗') + '<br>';
-                
-                // Script loading status
-                info += '<br><strong>Script Loading:</strong><br>';
-                info += 'UI.js: ' + (window.scriptStatus.ui ? '✓' : '✗') + '<br>';
-                info += 'World.js: ' + (window.scriptStatus.world ? '✓' : '✗') + '<br>';
-                info += 'FirstPersonControls.js: ' + (window.scriptStatus.firstPersonControls ? '✓' : '✗') + '<br>';
-                info += 'Main.js: ' + (window.scriptStatus.main ? '✓' : '✗') + '<br>';
-                
-                // Camera position if available
-                if (typeof camera !== 'undefined') {
-                    info += '<br><strong>Camera position:</strong><br>';
-                    info += 'X: ' + camera.position.x.toFixed(2) + '<br>';
-                    info += 'Y: ' + camera.position.y.toFixed(2) + '<br>';
-                    info += 'Z: ' + camera.position.z.toFixed(2) + '<br>';
-                }
-                
-                // Pointer lock status
-                info += '<br>Pointer locked: ' + (document.pointerLockElement ? 'Yes' : 'No') + '<br>';
-                
-                // Scene children count
-                if (typeof scene !== 'undefined') {
-                    info += '<br>Objects in scene: ' + scene.children.length + '<br>';
-                }
-                
-                debugInfo.innerHTML = info;
-                
-                setTimeout(updateDebugInfo, 500);
-            }
             
             // Simulate loading progress
             function simulateLoading() {

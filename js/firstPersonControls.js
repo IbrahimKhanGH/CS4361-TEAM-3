@@ -16,7 +16,7 @@ let direction = new THREE.Vector3();
 let controls;
 
 // Debug flag
-const DEBUG_CONTROLS = true;
+const DEBUG_CONTROLS = false;
 
 /**
  * Initializes first-person controls for the camera
@@ -137,38 +137,16 @@ function createCrosshair() {
         crosshair.style.position = 'absolute';
         crosshair.style.top = '50%';
         crosshair.style.left = '50%';
-        crosshair.style.width = '20px';
-        crosshair.style.height = '20px';
-        crosshair.style.marginTop = '-10px';
-        crosshair.style.marginLeft = '-10px';
+        crosshair.style.width = '10px';
+        crosshair.style.height = '10px';
+        crosshair.style.marginTop = '-5px';
+        crosshair.style.marginLeft = '-5px';
         crosshair.style.zIndex = '999';
         crosshair.style.pointerEvents = 'none';
-        
-        // Create crosshair lines
-        const verticalLine = document.createElement('div');
-        verticalLine.style.position = 'absolute';
-        verticalLine.style.top = '0';
-        verticalLine.style.left = '50%';
-        verticalLine.style.width = '2px';
-        verticalLine.style.height = '100%';
-        verticalLine.style.marginLeft = '-1px';
-        verticalLine.style.backgroundColor = 'white';
-        
-        const horizontalLine = document.createElement('div');
-        horizontalLine.style.position = 'absolute';
-        horizontalLine.style.top = '50%';
-        horizontalLine.style.left = '0';
-        horizontalLine.style.width = '100%';
-        horizontalLine.style.height = '2px';
-        horizontalLine.style.marginTop = '-1px';
-        horizontalLine.style.backgroundColor = 'white';
-        
-        crosshair.appendChild(verticalLine);
-        crosshair.appendChild(horizontalLine);
+        crosshair.style.borderRadius = '50%';
+        crosshair.style.border = '1px solid white';
         
         document.body.appendChild(crosshair);
-        
-        if (DEBUG_CONTROLS) console.log('Crosshair created');
     } catch (error) {
         console.error('Error creating crosshair:', error);
     }

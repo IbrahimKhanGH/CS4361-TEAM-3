@@ -9,7 +9,7 @@ let clock = new THREE.Clock();
 let animationId;
 
 // Debug flag
-const DEBUG_MAIN = true;
+const DEBUG_MAIN = false;
 
 // Track initialization status
 window.appInitialized = false;
