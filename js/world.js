@@ -1,17 +1,24 @@
 /**
- * 3D World environment for the Graphics Learning Studio
- * This file handles the creation and management of the 3D world that users navigate through
+ * 3d world for graphics learning studio
+ * handles terrain, stations, and interactive elements
  */
 
-// World objects and settings
+//=============================================================================
+// GLOBAL VARIABLES AND CONSTANTS
+//=============================================================================
+
+// world objects
 let terrain, skybox;
 let learningStations = {};
 let currentStation = null;
 
-// Textures
-let textures = {};
+// Initialize station controls object
+const stationControls = {};
 
-// Descriptions for learning stations
+// External THREE.js objects we need access to
+let scene, camera, clock;
+
+// station descriptions
 const stationDescriptions = {
     pipeline: "The graphics pipeline is the sequence of steps used to create a 2D representation of a 3D scene. Major stages include vertex processing, primitive assembly, rasterization, and fragment processing.",
     lighting: "Lighting models simulate how light interacts with surfaces. Key concepts include ambient light, diffuse reflection, and specular reflection, as well as shadows and global illumination techniques.\n\nAmbient lighting simulates indirect light scattered throughout a scene, ensuring objects are never completely dark. It represents the effect of light bouncing off multiple surfaces, so even areas not directly lit by a light source remain visible.\n\nDiffuse reflection occurs when light hits a rough surface and is scattered equally in all directions. This gives objects their basic color and soft shading, and is characteristic of matte or non-shiny surfaces, often called Lambertian reflectors.\n\nSpecular reflection happens when light reflects off a smooth surface in a specific direction, creating a bright, concentrated highlight. The size and sharpness of this highlight depend on how smooth or shiny the material is-glossy surfaces produce small, sharp highlights, while duller surfaces create larger, softer ones.",
@@ -21,24 +28,112 @@ const stationDescriptions = {
 };
 
 /**
- * Creates the 3D world environment
+ * Initialize the world with scene and camera references
+ */
+function initWorld(sceneRef, cameraRef) {
+    scene = sceneRef;
+    camera = cameraRef;
+    clock = new THREE.Clock();
+    
+    // Create the world
+    createWorld();
+}
+
+//=============================================================================
+// MAIN WORLD FUNCTIONS
+//=============================================================================
+
+/**
+ * create main world environment
  */
 function createWorld() {
-    // Create skybox
+    // make skybox
     createSkybox();
     
-    // Create terrain
+    // setup ground
     createTerrain();
     
-    // Create learning stations
+    // add learning stations
     createLearningStations();
     
-    // Add decorative elements
+    // add trees and decorations
     addWorldDecorations();
 
-    // Add world border walls
+    // add world boundaries
     createWorldBorder();
 }
+
+/**
+ * update world animations
+ */
+function updateWorld(time) {
+    const delta = clock.getDelta();
+
+    // update all learning station demos
+    for (const stationKey in learningStations) {
+        const station = learningStations[stationKey];
+        if (station.demoObject && station.demoObject.update && station.demoObject.visible) {
+            station.demoObject.update(time, delta);
+        }
+    }
+}
+
+/**
+ * check if player is near stations
+ */
+function checkStationProximity() {
+    try {
+        // get player position
+        const playerPosition = camera.position;
+        
+        // check distance to each station
+        let nearestStation = null;
+        let nearestDistance = 5; // activation radius
+        
+        for (const stationKey in learningStations) {
+            const station = learningStations[stationKey];
+            const distance = playerPosition.distanceTo(station.position);
+            
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestStation = station;
+            }
+        }
+        
+        // activate nearest station, deactivate others
+        if (nearestStation !== currentStation) {
+            // deactivate current station
+            if (currentStation) {
+                currentStation.deactivate();
+            }
+            
+            // activate new station
+            if (nearestStation) {
+                nearestStation.activate();
+            } else {
+                // no station nearby, reset UI
+                const currentTopicElement = document.getElementById('current-topic');
+                if (currentTopicElement) {
+                    currentTopicElement.textContent = 'Explore';
+                }
+                
+                const topicDescriptionElement = document.getElementById('topic-description');
+                if (topicDescriptionElement) {
+                    topicDescriptionElement.innerHTML = 
+                        '<p>Move around the 3D world to discover learning stations about computer graphics concepts.</p>';
+                }
+                
+                currentStation = null;
+            }
+        }
+    } catch (error) {
+        console.error('proximity check error:', error);
+    }
+}
+
+//=============================================================================
+// ENVIRONMENT CREATION
+//=============================================================================
 
 /**
  * Creates a skybox for the 3D world
@@ -296,1177 +391,906 @@ function createStation(name, position, color) {
     };
 }
 
+//=============================================================================
+// DEMO OBJECTS FOR STATIONS
+//=============================================================================
+
 /**
- * Creates a demo object specific to each learning station
- * @param {string} stationType - The type of station
- * @param {THREE.Vector3} position - The position in the 3D world
- * @param {number} color - The color of the demo object
- * @returns {THREE.Object3D} - The demo object
+ * Creates a demo object based on station type
  */
 function createStationDemoObject(stationType, position, color) {
-    let demoObject;
+    let demoObject = null;
     
-    switch(stationType.toLowerCase()) {
+    switch(stationType) {
         case 'pipeline':
-            // Create a pipeline visualization
             demoObject = createPipelineDemo(position, color);
             break;
-            
         case 'lighting':
-            // Create a lighting demonstration
             demoObject = createLightingDemo(position, color);
             break;
-            
         case 'texturing':
-            // Create a texturing demonstration
             demoObject = createTexturingDemo(position, color);
             break;
-            
         case 'geometry':
-            // Create a geometry demonstration
             demoObject = createGeometryDemo(position, color);
             break;
-            
         case 'shaders':
-            // Create a shader demonstration
             demoObject = createShaderDemo(position, color);
             break;
-            
         default:
-            // Default demo object is a spinning cube
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshStandardMaterial({
-                color: color,
-                metalness: 0.7,
-                roughness: 0.3
-            });
-            demoObject = new THREE.Mesh(geometry, material);
+            console.error('Unknown station type:', stationType);
     }
     
-    // Position the demo object above the platform
-    demoObject.position.copy(position);
-    demoObject.position.y = 2;
-    demoObject.visible = false; // Initially hidden
-    scene.add(demoObject);
+    if (demoObject) {
+        demoObject.visible = false; // Hidden by default
+        scene.add(demoObject);
+    }
     
     return demoObject;
 }
 
 /**
- * Creates a pipeline visualization demo
+ * Creates the pipeline demo object
  */
 function createPipelineDemo(position, color) {
-    // Create a group to hold all pipeline elements
-    const pipelineGroup = new THREE.Group();
-    pipelineGroup.position.copy(position);
-    pipelineGroup.position.y = 1.5;
+    // Create a group to hold all pipeline demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Pipeline stages parameters
-    const stageCount = 5;
-    const stageSpacing = 1.2;
-    const startX = -(stageCount - 1) / 2 * stageSpacing;
-    const endX = (stageCount - 1) / 2 * stageSpacing;
-    
-    // Create pipeline stages as connected boxes
-    const stageGeometry = new THREE.BoxGeometry(1, 0.5, 0.5);
-    const stageMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: 0.5,
-        roughness: 0.5
-    });
-    
-    for (let i = 0; i < stageCount; i++) {
-        const stage = new THREE.Mesh(stageGeometry, stageMaterial.clone());
-        stage.position.x = (i - (stageCount - 1) / 2) * stageSpacing;
-        pipelineGroup.add(stage);
-        
-        // Add connecting "pipes" between stages
-        if (i < stageCount - 1) {
-            const pipeGeometry = new THREE.CylinderGeometry(0.1, 0.1, stageSpacing - 0.2, 8);
-            const pipeMaterial = new THREE.MeshStandardMaterial({
-                color: 0x888888,
-                metalness: 0.8,
-                roughness: 0.2
-            });
-            
-            const pipe = new THREE.Mesh(pipeGeometry, pipeMaterial);
-            pipe.rotation.z = Math.PI / 2;
-            pipe.position.x = (i - (stageCount - 1) / 2) * stageSpacing + stageSpacing / 2;
-            pipelineGroup.add(pipe);
-        }
-    }
-
-    // Create a "packet" to animate through the pipeline
-    const packetGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-    const packetMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-    const packet = new THREE.Mesh(packetGeometry, packetMaterial);
-    packet.position.set(startX, 0, 0); // Start at the beginning
-    pipelineGroup.add(packet);
-
-    // Store necessary variables for animation
-    pipelineGroup.packet = packet;
-    pipelineGroup.startX = startX;
-    pipelineGroup.endX = endX;
-    pipelineGroup.animationProgress = 0;
-    pipelineGroup.animationDuration = 5; // seconds to travel pipeline
-
-    // Add an init function to reset the animation
-    pipelineGroup.init = function() {
-        this.packet.position.x = this.startX;
-        this.animationProgress = 0;
-    };
-
-    // Add animation function to the group
-    pipelineGroup.update = function(time, delta) { // Pass delta time
-        if (!this.visible) return; // Don't update if not visible
-
-        this.animationProgress += delta;
-        if (this.animationProgress > this.animationDuration) {
-            this.animationProgress = 0; // Loop animation
-        }
-
-        const progressRatio = this.animationProgress / this.animationDuration;
-        this.packet.position.x = this.startX + (this.endX - this.startX) * progressRatio;
-    };
-    
-    return pipelineGroup;
-}
-
-/**
- * Creates a lighting demonstration
- */
-function createLightingDemo(position, color) {
-    // Create a group for the lighting demo
-    const lightingGroup = new THREE.Group();
-    lightingGroup.position.copy(position);
-    lightingGroup.position.y = 1.5;
-    
-    // Create a sphere to demonstrate lighting
-    const sphereGeometry = new THREE.SphereGeometry(0.7, 32, 32);
-    const sphereMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        metalness: 0.1,
-        roughness: 0.2
-    });
-    
-    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    lightingGroup.add(sphere);
-    
-    // Add a point light that orbits the sphere
-    const demoLight = new THREE.PointLight(color, 1, 10);
-    demoLight.position.set(1.5, 0, 0);
-    lightingGroup.add(demoLight);
-    
-    // Add a small sphere to represent the light
-    const lightSphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-    const lightSphereMaterial = new THREE.MeshBasicMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 1
-    });
-    
-    const lightSphere = new THREE.Mesh(lightSphereGeometry, lightSphereMaterial);
-    lightSphere.position.copy(demoLight.position);
-    lightingGroup.add(lightSphere);
-    
-    // Create interactive controls - store elements so they can be shown/hidden
-    lightingGroup.controlsElements = [];
-    
-    // Setup controls for when station is activated
-    lightingGroup.setupControls = function() {
-        // Remove any existing controls first
-        this.removeControls();
-        
-        // Create controls container
-        const controlsContainer = document.createElement('div');
-        controlsContainer.className = 'station-controls lighting-controls';
-        controlsContainer.style.position = 'absolute';
-        controlsContainer.style.bottom = '20px';
-        controlsContainer.style.left = '50%';
-        controlsContainer.style.transform = 'translateX(-50%)';
-        controlsContainer.style.padding = '10px';
-        controlsContainer.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        controlsContainer.style.borderRadius = '10px';
-        controlsContainer.style.color = 'white';
-        controlsContainer.style.fontFamily = 'Arial, sans-serif';
-        controlsContainer.style.textAlign = 'center';
-        controlsContainer.style.zIndex = '1000';
-        document.body.appendChild(controlsContainer);
-        this.controlsElements.push(controlsContainer);
-        
-        // Add title
-        const title = document.createElement('h3');
-        title.textContent = 'Light Magic!';
-        title.style.margin = '0 0 10px 0';
-        title.style.fontSize = '18px';
-        controlsContainer.appendChild(title);
-        
-        // Color control section
-        const colorSection = document.createElement('div');
-        colorSection.style.marginBottom = '15px';
-        controlsContainer.appendChild(colorSection);
-        
-        // Color buttons with kid-friendly names
-        const colorTitle = document.createElement('div');
-        colorTitle.textContent = 'Choose a Light Color:';
-        colorTitle.style.marginBottom = '5px';
-        colorSection.appendChild(colorTitle);
-        
-        const colorButtons = document.createElement('div');
-        colorButtons.style.display = 'flex';
-        colorButtons.style.justifyContent = 'center';
-        colorButtons.style.gap = '10px';
-        colorSection.appendChild(colorButtons);
-        
-        // Define kid-friendly colors
-        const lightColors = [
-            { name: 'Sunshine', value: '#FFF176' },
-            { name: 'Blueberry', value: '#42A5F5' },
-            { name: 'Watermelon', value: '#EF5350' },
-            { name: 'Lime', value: '#66BB6A' },
-            { name: 'Grape', value: '#AB47BC' }
-        ];
-        
-        lightColors.forEach(colorInfo => {
-            const colorBtn = document.createElement('button');
-            colorBtn.style.width = '20px';
-            colorBtn.style.height = '20px';
-            colorBtn.style.backgroundColor = colorInfo.value;
-            colorBtn.style.border = 'none';
-            colorBtn.style.borderRadius = '50%';
-            colorBtn.style.cursor = 'pointer';
-            colorBtn.title = colorInfo.name;
-            
-            colorBtn.addEventListener('click', () => {
-                const newColor = new THREE.Color(colorInfo.value);
-                demoLight.color.set(newColor);
-                lightSphereMaterial.color.set(newColor);
-                lightSphereMaterial.emissive.set(newColor);
-            });
-            
-            colorButtons.appendChild(colorBtn);
-        });
-        
-        // Light intensity slider
-        const intensitySection = document.createElement('div');
-        intensitySection.style.marginBottom = '15px';
-        controlsContainer.appendChild(intensitySection);
-        
-        const intensityTitle = document.createElement('div');
-        intensityTitle.textContent = 'Light Brightness:';
-        intensityTitle.style.marginBottom = '5px';
-        intensitySection.appendChild(intensityTitle);
-        
-        const intensitySlider = document.createElement('input');
-        intensitySlider.type = 'range';
-        intensitySlider.min = '0';
-        intensitySlider.max = '2';
-        intensitySlider.step = '0.1';
-        intensitySlider.value = '1';
-        intensitySlider.style.width = '100%';
-        intensitySlider.style.accentColor = '#FFC107';
-        intensitySection.appendChild(intensitySlider);
-        
-        intensitySlider.addEventListener('input', () => {
-            demoLight.intensity = parseFloat(intensitySlider.value);
-        });
-        
-        // Material shininess slider
-        const shininessSection = document.createElement('div');
-        controlsContainer.appendChild(shininessSection);
-        
-        const shininessTitle = document.createElement('div');
-        shininessTitle.textContent = 'Object Shininess:';
-        shininessTitle.style.marginBottom = '5px';
-        shininessSection.appendChild(shininessTitle);
-        
-        const shininessSlider = document.createElement('input');
-        shininessSlider.type = 'range';
-        shininessSlider.min = '0';
-        shininessSlider.max = '1';
-        shininessSlider.step = '0.05';
-        shininessSlider.value = sphere.material.roughness;
-        shininessSlider.style.width = '100%';
-        shininessSlider.style.accentColor = '#FFC107';
-        shininessSection.appendChild(shininessSlider);
-        
-        shininessSlider.addEventListener('input', () => {
-            const shininess = 1 - parseFloat(shininessSlider.value);  // Invert for intuitive control
-            sphere.material.roughness = parseFloat(shininessSlider.value);
-            sphere.material.metalness = shininess * 0.7; // Scale to reasonable metalness
-        });
-    };
-    
-    // Method to remove controls
-    lightingGroup.removeControls = function() {
-        if (this.controlsElements) {
-            this.controlsElements.forEach(element => {
-                if (element && element.parentNode) {
-                    element.parentNode.removeChild(element);
-                }
-            });
-            this.controlsElements = [];
-        }
-    };
-    
-    // Add animation function to the group
-    lightingGroup.update = function(time) {
-        // Orbit the light around the sphere
-        demoLight.position.x = Math.sin(time * 2) * 1.5;
-        demoLight.position.z = Math.cos(time * 2) * 1.5;
-        lightSphere.position.copy(demoLight.position);
-    };
-    
-    return lightingGroup;
-}
-
-/**
- * Creates a texturing demonstration
- */
-function createTexturingDemo(position, color) {
-    // Create a group for the texturing demo
-    const texturingGroup = new THREE.Group();
-    texturingGroup.position.copy(position);
-    texturingGroup.position.y = 1.5;
-    
-    // Default cube material (fallback)
-    const cubeMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: 0.1,
-        roughness: 0.8
-    });
-    
-    // Create textures array to store loaded textures
-    const textures = [];
-    let currentTextureIndex = 0;
-    
-    // Create procedural textures - no need to load external files
-    const textureSize = 256;
-    
-    // Define texture types with colors
-    const textureTypes = [
-        { name: 'Bricks', color: new THREE.Color(0xbb4444) },
-        { name: 'Wood', color: new THREE.Color(0x8b4513) },
-        { name: 'Stone', color: new THREE.Color(0x888888) },
-        { name: 'Grass', color: new THREE.Color(0x44aa44) },
-        { name: 'Metal', color: new THREE.Color(0x999999) }
+    // Create a simplistic representation of the pipeline
+    const stages = [
+        { name: "Vertex Processing", color: 0x4CAF50 },
+        { name: "Primitive Assembly", color: 0x8BC34A },
+        { name: "Rasterization", color: 0xCDDC39 },
+        { name: "Fragment Processing", color: 0xFFEB3B },
+        { name: "Output Merger", color: 0xFFC107 }
     ];
     
-    // Create a procedural texture for each type
-    textureTypes.forEach((texInfo, index) => {
-        // Create canvas for the texture
+    const stageSpacing = 1.0;
+    const stageSize = 0.5;
+    
+    // Create a model that will move through the pipeline
+    const modelGeometry = new THREE.TetrahedronGeometry(0.3);
+    const modelMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.5,
+        metalness: 0.5
+    });
+    const model = new THREE.Mesh(modelGeometry, modelMaterial);
+    model.position.set(-stageSpacing * 3, 0, 0);
+    group.add(model);
+    
+    // Create visual representations of each pipeline stage
+    for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
+        
+        // Create stage node
+        const nodeGeometry = new THREE.BoxGeometry(stageSize, stageSize, stageSize);
+        const nodeMaterial = new THREE.MeshStandardMaterial({
+            color: stage.color,
+            roughness: 0.7,
+            metalness: 0.3
+        });
+        const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+        node.position.x = -stageSpacing * 2 + i * stageSpacing;
+        group.add(node);
+        
+        // Create connection to next stage
+        if (i < stages.length - 1) {
+            const connectionGeometry = new THREE.CylinderGeometry(0.05, 0.05, stageSpacing, 8);
+            const connectionMaterial = new THREE.MeshStandardMaterial({
+                color: 0xBDBDBD
+            });
+            const connection = new THREE.Mesh(connectionGeometry, connectionMaterial);
+            connection.position.x = -stageSpacing * 2 + i * stageSpacing + stageSpacing / 2;
+            connection.rotation.z = Math.PI / 2;
+            group.add(connection);
+        }
+    }
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Move the model through the pipeline
+        model.position.x = -stageSpacing * 3 + ((time * 0.5) % (stageSpacing * 6));
+        
+        // Reset position after completing the pipeline
+        if (model.position.x > stageSpacing * 3) {
+            model.position.x = -stageSpacing * 3;
+        }
+        
+        // Rotate model as it moves
+        model.rotation.x += delta * 2;
+        model.rotation.y += delta * 3;
+    };
+    
+    return group;
+}
+
+/**
+ * Creates the lighting demo object
+ */
+function createLightingDemo(position, color) {
+    // Create a group to hold all lighting demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
+    
+    // Create a demo object to showcase lighting
+    const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+    const sphereMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.5,
+        metalness: 0.2
+    });
+    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    group.add(sphere);
+    
+    // Create a point light for the demo
+    const pointLight = new THREE.PointLight(0xFFFFFF, 1, 10);
+    pointLight.position.set(2, 2, 2);
+    group.add(pointLight);
+    
+    // Create a visual representation of the light
+    const lightSphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+    const lightSphereMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFFFFF
+    });
+    const lightSphere = new THREE.Mesh(lightSphereGeometry, lightSphereMaterial);
+    lightSphere.position.copy(pointLight.position);
+    group.add(lightSphere);
+    
+    // Add control panel
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'lighting-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Lighting Controls</h3>
+        <div class="control-group">
+            <h4>Light Color</h4>
+            <div class="button-group">
+                <button data-color="#FFFFFF" class="color-button" style="background-color: #FFFFFF;">Sunshine</button>
+                <button data-color="#FF9800" class="color-button" style="background-color: #FF9800;">Orange Glow</button>
+                <button data-color="#2196F3" class="color-button" style="background-color: #2196F3;">Blueberry</button>
+                <button data-color="#E91E63" class="color-button" style="background-color: #E91E63;">Pink</button>
+                <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;">Mint</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Light Brightness</h4>
+            <input type="range" min="0" max="2" step="0.1" value="1" id="brightness-slider">
+        </div>
+        <div class="control-group">
+            <h4>Material Properties</h4>
+            <div class="slider-group">
+                <label>Shininess</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.5" id="shininess-slider">
+            </div>
+            <div class="slider-group">
+                <label>Metalness</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.2" id="metalness-slider">
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('lighting-controls')) {
+        // Color buttons
+        const colorButtons = document.querySelectorAll('#lighting-controls .color-button');
+        colorButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const colorValue = this.getAttribute('data-color');
+                pointLight.color.set(colorValue);
+                lightSphere.material.color.set(colorValue);
+            });
+        });
+        
+        // Brightness slider
+        const brightnessSlider = document.getElementById('brightness-slider');
+        brightnessSlider.addEventListener('input', function() {
+            pointLight.intensity = parseFloat(this.value);
+        });
+        
+        // Material property sliders
+        const shininessSlider = document.getElementById('shininess-slider');
+        shininessSlider.addEventListener('input', function() {
+            const roughness = 1 - parseFloat(this.value);
+            sphereMaterial.roughness = roughness;
+            sphereMaterial.needsUpdate = true;
+        });
+        
+        const metalnessSlider = document.getElementById('metalness-slider');
+        metalnessSlider.addEventListener('input', function() {
+            sphereMaterial.metalness = parseFloat(this.value);
+            sphereMaterial.needsUpdate = true;
+        });
+    }
+    
+    // Store controls reference for show/hide
+    stationControls.lighting = {
+        show: function() {
+            const controls = document.getElementById('lighting-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('lighting-controls');
+            if (controls) controls.style.display = 'none';
+        }
+    };
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Rotate light around sphere
+        const angle = time * 0.5;
+        const radius = 2;
+        const height = Math.sin(time * 0.3) + 2;
+        
+        pointLight.position.x = Math.cos(angle) * radius;
+        pointLight.position.y = height;
+        pointLight.position.z = Math.sin(angle) * radius;
+        
+        lightSphere.position.copy(pointLight.position);
+    };
+    
+    return group;
+}
+
+/**
+ * Creates the texturing demo object
+ */
+function createTexturingDemo(position, color) {
+    // Create a group to hold all texturing demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
+    
+    // Create a cube to showcase texturing
+    const cubeGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+    const cubeMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.7,
+        metalness: 0.2
+    });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    group.add(cube);
+    
+    // Setup texture parameters
+    let currentTexture = 'bricks';
+    let textureRepeat = 1;
+    let textureRotation = 0;
+    
+    // Generate procedural textures
+    const textureSize = 512;
+    const generateProceduralTexture = (type) => {
         const canvas = document.createElement('canvas');
         canvas.width = textureSize;
         canvas.height = textureSize;
         const ctx = canvas.getContext('2d');
         
-        // Draw base color
-        ctx.fillStyle = `rgb(${Math.floor(texInfo.color.r * 255)}, ${Math.floor(texInfo.color.g * 255)}, ${Math.floor(texInfo.color.b * 255)})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Clear canvas with white
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, textureSize, textureSize);
         
-        // Add texture pattern based on type
-        switch(texInfo.name) {
-            case 'Bricks':
-                // Simple brick pattern
-                const brickWidth = 40;
-                const brickHeight = 20;
-                ctx.fillStyle = '#aa3333';
-                for (let y = 0; y < canvas.height; y += brickHeight) {
-                    const offset = (Math.floor(y / brickHeight) % 2) * (brickWidth / 2);
-                    for (let x = 0; x < canvas.width; x += brickWidth) {
-                        ctx.fillRect(x + offset, y, brickWidth - 4, brickHeight - 4);
+        switch (type) {
+            case 'bricks':
+                // Draw brick pattern
+                const brickWidth = 60;
+                const brickHeight = 30;
+                const mortarSize = 5;
+                
+                ctx.fillStyle = '#A52A2A';
+                
+                for (let y = 0; y < textureSize; y += brickHeight + mortarSize) {
+                    // Alternate brick rows
+                    const offset = (Math.floor(y / (brickHeight + mortarSize)) % 2) * (brickWidth / 2);
+                    
+                    for (let x = -offset; x < textureSize; x += brickWidth + mortarSize) {
+                        ctx.fillRect(x, y, brickWidth, brickHeight);
                     }
                 }
                 break;
                 
-            case 'Wood':
-                // Wood grain
-                for (let i = 0; i < 20; i++) {
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            case 'wood':
+                // Draw wood grain pattern
+                const baseColor = '#8B4513';
+                ctx.fillStyle = baseColor;
+                ctx.fillRect(0, 0, textureSize, textureSize);
+                
+                // Add wood grain
+                ctx.strokeStyle = '#603311';
+                ctx.lineWidth = 1;
+                
+                for (let i = 0; i < 100; i++) {
+                    const x = Math.random() * textureSize;
                     ctx.beginPath();
-                    ctx.moveTo(0, Math.random() * canvas.height);
-                    ctx.lineTo(canvas.width, Math.random() * canvas.height);
+                    ctx.moveTo(x, 0);
+                    
+                    // Create wavy line
+                    for (let y = 0; y < textureSize; y += 10) {
+                        const xOffset = x + Math.sin(y * 0.05) * 5 + Math.random() * 3;
+                        ctx.lineTo(xOffset, y);
+                    }
+                    
                     ctx.stroke();
                 }
                 break;
                 
-            case 'Stone':
-                // Stone texture
+            case 'stone':
+                // Draw stone pattern
+                ctx.fillStyle = '#888888';
+                ctx.fillRect(0, 0, textureSize, textureSize);
+                
+                // Add stone pattern
                 for (let i = 0; i < 50; i++) {
-                    ctx.fillStyle = `rgba(100, 100, 100, ${Math.random() * 0.2})`;
+                    const size = 20 + Math.random() * 40;
+                    const x = Math.random() * textureSize;
+                    const y = Math.random() * textureSize;
+                    const shade = 100 + Math.floor(Math.random() * 100);
+                    
+                    ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
                     ctx.beginPath();
-                    ctx.arc(
-                        Math.random() * canvas.width,
-                        Math.random() * canvas.height,
-                        Math.random() * 20 + 5,
-                        0, Math.PI * 2
-                    );
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
                     ctx.fill();
                 }
-                break;
                 
-            case 'Grass':
-                // Grass texture
-                for (let i = 0; i < 300; i++) {
-                    ctx.strokeStyle = `rgb(${20 + Math.random() * 20}, ${100 + Math.random() * 40}, ${20 + Math.random() * 20})`;
-                    ctx.beginPath();
-                    const x = Math.random() * canvas.width;
-                    const y = Math.random() * canvas.height;
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x + (Math.random() * 10 - 5), y - Math.random() * 10);
-                    ctx.stroke();
-                }
-                break;
+                // Add cracks
+                ctx.strokeStyle = '#555555';
+                ctx.lineWidth = 1;
                 
-            case 'Metal':
-                // Metal texture
-                ctx.fillStyle = '#888888';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Add highlights
-                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
-                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
-                gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Add scratches
                 for (let i = 0; i < 20; i++) {
-                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+                    const x = Math.random() * textureSize;
+                    const y = Math.random() * textureSize;
+                    
                     ctx.beginPath();
-                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                    ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.moveTo(x, y);
+                    
+                    // Create random crack
+                    let currentX = x;
+                    let currentY = y;
+                    const segments = 5 + Math.floor(Math.random() * 5);
+                    
+                    for (let j = 0; j < segments; j++) {
+                        currentX += (Math.random() - 0.5) * 40;
+                        currentY += (Math.random() - 0.5) * 40;
+                        ctx.lineTo(currentX, currentY);
+                    }
+                    
                     ctx.stroke();
                 }
                 break;
-        }
-        
-        // Create texture from canvas
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        
-        // Add to textures array
-        textures.push({
-            texture: texture,
-            name: texInfo.name
-        });
-        
-        // Apply first texture to cube
-        if (index === 0) {
-            cubeMaterial.map = texture;
-            cubeMaterial.needsUpdate = true;
-        }
-    });
-    
-    // Create a cube with the texture or fallback material
-    const cubeGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    texturingGroup.add(cube);
-    
-    // Store cube reference for controls
-    texturingGroup.cube = cube;
-
-    // Create interactive controls - store elements so they can be shown/hidden
-    texturingGroup.controlsElements = [];
-    
-    // Setup controls for when station is activated
-    texturingGroup.setupControls = function() {
-        // Remove any existing controls first
-        this.removeControls();
-        
-        // Create controls container
-        const controlsContainer = document.createElement('div');
-        controlsContainer.className = 'station-controls texturing-controls';
-        controlsContainer.style.position = 'absolute';
-        controlsContainer.style.bottom = '20px';
-        controlsContainer.style.left = '50%';
-        controlsContainer.style.transform = 'translateX(-50%)';
-        controlsContainer.style.padding = '10px';
-        controlsContainer.style.backgroundColor = 'rgba(33, 150, 243, 0.7)';
-        controlsContainer.style.borderRadius = '10px';
-        controlsContainer.style.color = 'white';
-        controlsContainer.style.fontFamily = 'Arial, sans-serif';
-        controlsContainer.style.textAlign = 'center';
-        controlsContainer.style.zIndex = '1000';
-        document.body.appendChild(controlsContainer);
-        this.controlsElements.push(controlsContainer);
-        
-        // Add title
-        const title = document.createElement('h3');
-        title.textContent = 'Texture Explorer!';
-        title.style.margin = '0 0 10px 0';
-        title.style.fontSize = '18px';
-        controlsContainer.appendChild(title);
-
-        // Texture selection
-        const textureSection = document.createElement('div');
-        textureSection.style.marginBottom = '15px';
-        controlsContainer.appendChild(textureSection);
-        
-        const textureTitle = document.createElement('div');
-        textureTitle.textContent = 'Choose a Texture:';
-        textureTitle.style.marginBottom = '5px';
-        textureSection.appendChild(textureTitle);
-        
-        // Create buttons for different textures
-        const textureButtonsContainer = document.createElement('div');
-        textureButtonsContainer.style.display = 'flex';
-        textureButtonsContainer.style.justifyContent = 'center';
-        textureButtonsContainer.style.flexWrap = 'wrap';
-        textureButtonsContainer.style.gap = '5px';
-        textureSection.appendChild(textureButtonsContainer);
-        
-        const applyTexture = (index) => {
-            if (textures[index]) {
-                cube.material.map = textures[index].texture;
-                cube.material.needsUpdate = true;
-                currentTextureIndex = index;
                 
-                // Update active button state
-                document.querySelectorAll('.texture-btn').forEach((btn, i) => {
-                    btn.style.border = i === index ? '2px solid white' : 'none';
-                    btn.style.transform = i === index ? 'scale(1.1)' : 'scale(1)';
-                });
-            }
-        };
+            case 'checkerboard':
+                // Draw checkerboard pattern
+                const squareSize = 64;
+                
+                for (let y = 0; y < textureSize; y += squareSize) {
+                    for (let x = 0; x < textureSize; x += squareSize) {
+                        const isEven = (Math.floor(x / squareSize) + Math.floor(y / squareSize)) % 2 === 0;
+                        ctx.fillStyle = isEven ? '#000000' : '#FFFFFF';
+                        ctx.fillRect(x, y, squareSize, squareSize);
+                    }
+                }
+                break;
+                
+            case 'dots':
+                // Draw dot pattern
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, textureSize, textureSize);
+                
+                const dotSize = 10;
+                const spacing = 40;
+                
+                ctx.fillStyle = '#000000';
+                
+                for (let y = spacing / 2; y < textureSize; y += spacing) {
+                    for (let x = spacing / 2; x < textureSize; x += spacing) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                break;
+                
+            default:
+                // Default pattern
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, textureSize, textureSize);
+        }
         
-        // Textures defined earlier in our load section
-        const textureTypes = ['Bricks', 'Wood', 'Stone', 'Grass', 'Metal'];
-        
-        textureTypes.forEach((textureName, index) => {
-            const textureBtn = document.createElement('button');
-            textureBtn.className = 'texture-btn';
-            textureBtn.textContent = textureName;
-            textureBtn.style.padding = '6px 10px';
-            textureBtn.style.backgroundColor = index === 0 ? '#1976D2' : '#2196F3';
-            textureBtn.style.border = index === 0 ? '2px solid white' : 'none';
-            
-            textureBtn.addEventListener('click', () => {
-                applyTexture(index);
-            });
-            
-            textureButtonsContainer.appendChild(textureBtn);
-        });
-        
-        // Texture repeat control
-        const repeatSection = document.createElement('div');
-        repeatSection.style.marginBottom = '15px';
-        controlsContainer.appendChild(repeatSection);
-        
-        const repeatTitle = document.createElement('div');
-        repeatTitle.textContent = 'Texture Repeat:';
-        repeatTitle.style.marginBottom = '5px';
-        repeatSection.appendChild(repeatTitle);
-        
-        const repeatSlider = document.createElement('input');
-        repeatSlider.type = 'range';
-        repeatSlider.min = '1';
-        repeatSlider.max = '5';
-        repeatSlider.step = '1';
-        repeatSlider.value = '1';
-        repeatSlider.style.width = '100%';
-        repeatSlider.style.accentColor = '#2196F3';
-        repeatSection.appendChild(repeatSlider);
-        
-        repeatSlider.addEventListener('input', () => {
-            const repeatValue = parseInt(repeatSlider.value);
-            textures.forEach(texItem => {
-                texItem.texture.repeat.set(repeatValue, repeatValue);
-                texItem.texture.needsUpdate = true;
-            });
-        });
-        
-        // Rotation control
-        const rotationSection = document.createElement('div');
-        controlsContainer.appendChild(rotationSection);
-        
-        const rotationTitle = document.createElement('div');
-        rotationTitle.textContent = 'Spin Speed:';
-        rotationTitle.style.marginBottom = '5px';
-        rotationSection.appendChild(rotationTitle);
-        
-        const rotationSlider = document.createElement('input');
-        rotationSlider.type = 'range';
-        rotationSlider.min = '0';
-        rotationSlider.max = '2';
-        rotationSlider.step = '0.1';
-        rotationSlider.value = '0.5';
-        rotationSlider.style.width = '100%';
-        rotationSlider.style.accentColor = '#2196F3';
-        rotationSection.appendChild(rotationSlider);
-        
-        // Store the rotation speed
-        this.rotationSpeed = parseFloat(rotationSlider.value);
-        
-        rotationSlider.addEventListener('input', () => {
-            this.rotationSpeed = parseFloat(rotationSlider.value);
-        });
+        return new THREE.CanvasTexture(canvas);
     };
     
-    // Method to remove controls
-    texturingGroup.removeControls = function() {
-        if (this.controlsElements) {
-            this.controlsElements.forEach(element => {
-                if (element && element.parentNode) {
-                    element.parentNode.removeChild(element);
-                }
+    // Apply texture to the cube
+    const applyTexture = (textureType) => {
+        currentTexture = textureType;
+        
+        const texture = generateProceduralTexture(textureType);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(textureRepeat, textureRepeat);
+        texture.rotation = textureRotation;
+        
+        cubeMaterial.map = texture;
+        cubeMaterial.needsUpdate = true;
+    };
+    
+    // Initially apply brick texture
+    applyTexture('bricks');
+    
+    // Add texture control panel
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'texturing-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Texture Controls</h3>
+        <div class="control-group">
+            <h4>Texture Type</h4>
+            <div class="button-group">
+                <button data-texture="bricks" class="texture-button">Bricks</button>
+                <button data-texture="wood" class="texture-button">Wood</button>
+                <button data-texture="stone" class="texture-button">Stone</button>
+                <button data-texture="checkerboard" class="texture-button">Checkers</button>
+                <button data-texture="dots" class="texture-button">Dots</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Texture Repeat</h4>
+            <input type="range" min="0.5" max="5" step="0.5" value="1" id="repeat-slider">
+        </div>
+        <div class="control-group">
+            <h4>Texture Rotation</h4>
+            <div class="button-group">
+                <button id="rotate-left">⟲ Rotate Left</button>
+                <button id="rotate-right">⟳ Rotate Right</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('texturing-controls')) {
+        // Texture type buttons
+        const textureButtons = document.querySelectorAll('#texturing-controls .texture-button');
+        textureButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const textureType = this.getAttribute('data-texture');
+                applyTexture(textureType);
             });
-            this.controlsElements = [];
+        });
+        
+        // Repeat slider
+        const repeatSlider = document.getElementById('repeat-slider');
+        repeatSlider.addEventListener('input', function() {
+            textureRepeat = parseFloat(this.value);
+            if (cubeMaterial.map) {
+                cubeMaterial.map.repeat.set(textureRepeat, textureRepeat);
+                cubeMaterial.needsUpdate = true;
+            }
+        });
+        
+        // Rotation buttons
+        const rotateLeftButton = document.getElementById('rotate-left');
+        rotateLeftButton.addEventListener('click', function() {
+            textureRotation -= Math.PI / 6;
+            if (cubeMaterial.map) {
+                cubeMaterial.map.rotation = textureRotation;
+                cubeMaterial.needsUpdate = true;
+            }
+        });
+        
+        const rotateRightButton = document.getElementById('rotate-right');
+        rotateRightButton.addEventListener('click', function() {
+            textureRotation += Math.PI / 6;
+            if (cubeMaterial.map) {
+                cubeMaterial.map.rotation = textureRotation;
+                cubeMaterial.needsUpdate = true;
+            }
+        });
+    }
+    
+    // Store controls reference for show/hide
+    stationControls.texturing = {
+        show: function() {
+            const controls = document.getElementById('texturing-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('texturing-controls');
+            if (controls) controls.style.display = 'none';
         }
     };
     
-    // Default rotation speed
-    texturingGroup.rotationSpeed = 0.5;
-    
-    // Add animation function to the group
-    texturingGroup.update = function(time) {
-        // Rotate the cube to show all sides
-        cube.rotation.y = time * this.rotationSpeed;
-        cube.rotation.x = Math.sin(time) * 0.2;
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Rotate cube slowly
+        cube.rotation.y += delta * 0.2;
     };
     
-    return texturingGroup;
+    return group;
 }
 
 /**
- * Creates a geometry demonstration
+ * Creates the geometry demo object
  */
 function createGeometryDemo(position, color) {
-    // Create a group for the geometry demo
-    const geometryGroup = new THREE.Group();
-    geometryGroup.position.copy(position);
-    geometryGroup.position.y = 1.5;
+    // Create a group to hold all geometry demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Create different geometric shapes
-    const shapes = [];
+    // Create an array of different geometries
+    const geometries = [
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.SphereGeometry(0.7, 16, 16),
+        new THREE.ConeGeometry(0.7, 1.5, 16),
+        new THREE.TorusGeometry(0.7, 0.3, 16, 32),
+        new THREE.TetrahedronGeometry(0.8),
+        new THREE.OctahedronGeometry(0.8)
+    ];
     
-    // Tetrahedron
-    const tetraGeometry = new THREE.TetrahedronGeometry(0.5);
-    const tetraMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff5252,
-        metalness: 0.2,
-        roughness: 0.5
-    });
-    const tetrahedron = new THREE.Mesh(tetraGeometry, tetraMaterial);
-    tetrahedron.position.set(-1, 0, 0);
-    shapes.push(tetrahedron);
-    geometryGroup.add(tetrahedron);
+    // Create materials for the geometries
+    const materials = [
+        new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0x2196F3, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xFF9800, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0x9C27B0, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xF44336, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xFFEB3B, roughness: 0.5 })
+    ];
     
-    // Octahedron
-    const octaGeometry = new THREE.OctahedronGeometry(0.5);
-    const octaMaterial = new THREE.MeshStandardMaterial({
-        color: 0x4CAF50,
-        metalness: 0.2,
-        roughness: 0.5
-    });
-    const octahedron = new THREE.Mesh(octaGeometry, octaMaterial);
-    octahedron.position.set(0, 0, 0);
-    shapes.push(octahedron);
-    geometryGroup.add(octahedron);
+    // Create meshes for each geometry and position them in a circle
+    const meshes = [];
+    const radius = 2;
     
-    // Dodecahedron
-    const dodecaGeometry = new THREE.DodecahedronGeometry(0.5);
-    const dodecaMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2196F3,
-        metalness: 0.2,
-        roughness: 0.5
-    });
-    const dodecahedron = new THREE.Mesh(dodecaGeometry, dodecaMaterial);
-    dodecahedron.position.set(1, 0, 0);
-    shapes.push(dodecahedron);
-    geometryGroup.add(dodecahedron);
+    for (let i = 0; i < geometries.length; i++) {
+        const angle = (i / geometries.length) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        
+        const mesh = new THREE.Mesh(geometries[i], materials[i]);
+        mesh.position.set(x, 0, z);
+        
+        group.add(mesh);
+        meshes.push(mesh);
+    }
     
-    // Add animation function to the group
-    geometryGroup.update = function(time) {
-        // Rotate each shape differently
-        shapes.forEach((shape, index) => {
-            shape.rotation.x = time * (0.5 + index * 0.2);
-            shape.rotation.y = time * (0.3 + index * 0.1);
-        });
+    // Add a light to illuminate the geometries
+    const light = new THREE.PointLight(0xFFFFFF, 1, 10);
+    light.position.set(0, 2, 0);
+    group.add(light);
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Rotate each geometry differently
+        for (let i = 0; i < meshes.length; i++) {
+            meshes[i].rotation.x += delta * (0.5 + i * 0.1);
+            meshes[i].rotation.y += delta * (0.3 + i * 0.1);
+            
+            // Make geometries bob up and down
+            const bobHeight = Math.sin(time * (0.5 + i * 0.1)) * 0.2;
+            meshes[i].position.y = bobHeight;
+        }
+        
+        // Rotate the entire group slowly
+        group.rotation.y += delta * 0.1;
     };
     
-    return geometryGroup;
+    return group;
 }
 
 /**
- * Creates a shader demonstration
+ * Creates the shader demo object
  */
 function createShaderDemo(position, color) {
-    // Create a group for the shader demo
-    const shaderGroup = new THREE.Group();
-    shaderGroup.position.copy(position);
-    shaderGroup.position.y = 1.5;
+    // Create a group to hold all shader demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Create a custom shader material
-    const customShaderMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            time: { value: 0.0 },
-            color: { value: new THREE.Color(color) },
-            waveSpeed: { value: 2.0 },
-            waveCount: { value: 8.0 },
-            colorMix: { value: 0.5 }
-        },
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform float time;
-            uniform vec3 color;
-            uniform float waveSpeed;
-            uniform float waveCount;
-            uniform float colorMix;
-            varying vec2 vUv;
-            
-            void main() {
-                vec2 p = vUv * 2.0 - 1.0;
-                float r = length(p);
-                float a = atan(p.y, p.x);
-                
-                float f = sin(a * waveCount + time * waveSpeed) * 0.5 + 0.5;
-                vec3 finalColor = mix(color, vec3(1.0), f * r * colorMix);
-                
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `
-    });
+    // Create custom shader material
+    const vertexShader = `
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        void main() {
+            vUv = uv;
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
     
-    // Create a plane with the custom shader
-    const planeGeometry = new THREE.PlaneGeometry(2, 2, 32, 32);
-    const shaderPlane = new THREE.Mesh(planeGeometry, customShaderMaterial);
-    shaderGroup.add(shaderPlane);
+    const fragmentShader = `
+        uniform float time;
+        uniform vec3 color1;
+        uniform vec3 color2;
+        uniform float waveFrequency;
+        uniform float waveAmplitude;
+        uniform float blendFactor;
+        
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        void main() {
+            // Create a wave pattern
+            float wave = sin(vUv.x * waveFrequency + time) * sin(vUv.y * waveFrequency + time) * waveAmplitude;
+            
+            // Mix colors based on wave pattern
+            vec3 mixedColor = mix(color1, color2, wave * blendFactor + 0.5);
+            
+            gl_FragColor = vec4(mixedColor, 1.0);
+        }
+    `;
     
-    // Store references for controls
-    shaderGroup.material = customShaderMaterial;
-    
-    // Create interactive controls - store elements so they can be shown/hidden
-    shaderGroup.controlsElements = [];
-    
-    // Setup controls for when station is activated
-    shaderGroup.setupControls = function() {
-        // Remove any existing controls first
-        this.removeControls();
-        
-        // Create controls container
-        const controlsContainer = document.createElement('div');
-        controlsContainer.className = 'station-controls shader-controls';
-        controlsContainer.style.position = 'absolute';
-        controlsContainer.style.bottom = '20px';
-        controlsContainer.style.left = '50%';
-        controlsContainer.style.transform = 'translateX(-50%)';
-        controlsContainer.style.padding = '10px';
-        controlsContainer.style.backgroundColor = 'rgba(156, 39, 176, 0.7)';
-        controlsContainer.style.borderRadius = '10px';
-        controlsContainer.style.color = 'white';
-        controlsContainer.style.fontFamily = 'Arial, sans-serif';
-        controlsContainer.style.textAlign = 'center';
-        controlsContainer.style.zIndex = '1000';
-        controlsContainer.style.maxWidth = '300px';
-        document.body.appendChild(controlsContainer);
-        this.controlsElements.push(controlsContainer);
-        
-        // Add title
-        const title = document.createElement('h3');
-        title.textContent = 'Shader Magic!';
-        title.style.margin = '0 0 10px 0';
-        title.style.fontSize = '18px';
-        controlsContainer.appendChild(title);
-        
-        // Color control section
-        const colorSection = document.createElement('div');
-        colorSection.style.marginBottom = '15px';
-        controlsContainer.appendChild(colorSection);
-        
-        const colorTitle = document.createElement('div');
-        colorTitle.textContent = 'Magic Color:';
-        colorTitle.style.marginBottom = '5px';
-        colorSection.appendChild(colorTitle);
-        
-        const colorButtons = document.createElement('div');
-        colorButtons.style.display = 'flex';
-        colorButtons.style.justifyContent = 'center';
-        colorButtons.style.gap = '10px';
-        colorSection.appendChild(colorButtons);
-        
-        // Define fun colors
-        const shaderColors = [
-            { name: 'Purple', value: '#9C27B0' },
-            { name: 'Fire', value: '#FF5722' },
-            { name: 'Ocean', value: '#03A9F4' },
-            { name: 'Emerald', value: '#4CAF50' },
-            { name: 'Gold', value: '#FFC107' }
-        ];
-        
-        shaderColors.forEach(colorInfo => {
-            const colorBtn = document.createElement('button');
-            colorBtn.style.width = '20px';
-            colorBtn.style.height = '20px';
-            colorBtn.style.backgroundColor = colorInfo.value;
-            colorBtn.style.border = 'none';
-            colorBtn.style.borderRadius = '50%';
-            colorBtn.style.cursor = 'pointer';
-            colorBtn.title = colorInfo.name;
-            
-            colorBtn.addEventListener('click', () => {
-                const newColor = new THREE.Color(colorInfo.value);
-                customShaderMaterial.uniforms.color.value = newColor;
-            });
-            
-            colorButtons.appendChild(colorBtn);
-        });
-        
-        // Wave speed control
-        const speedSection = document.createElement('div');
-        speedSection.style.marginBottom = '15px';
-        controlsContainer.appendChild(speedSection);
-        
-        const speedTitle = document.createElement('div');
-        speedTitle.textContent = 'Wave Speed:';
-        speedTitle.style.marginBottom = '5px';
-        speedSection.appendChild(speedTitle);
-        
-        const speedSlider = document.createElement('input');
-        speedSlider.type = 'range';
-        speedSlider.min = '0.5';
-        speedSlider.max = '5';
-        speedSlider.step = '0.5';
-        speedSlider.value = customShaderMaterial.uniforms.waveSpeed.value;
-        speedSlider.style.width = '100%';
-        speedSlider.style.accentColor = '#9C27B0';
-        speedSection.appendChild(speedSlider);
-        
-        speedSlider.addEventListener('input', () => {
-            customShaderMaterial.uniforms.waveSpeed.value = parseFloat(speedSlider.value);
-        });
-        
-        // Wave count control
-        const waveSection = document.createElement('div');
-        waveSection.style.marginBottom = '15px';
-        controlsContainer.appendChild(waveSection);
-        
-        const waveTitle = document.createElement('div');
-        waveTitle.textContent = 'Wave Count:';
-        waveTitle.style.marginBottom = '5px';
-        waveSection.appendChild(waveTitle);
-        
-        const waveButtons = document.createElement('div');
-        waveButtons.style.display = 'flex';
-        waveButtons.style.justifyContent = 'center';
-        waveButtons.style.gap = '5px';
-        waveSection.appendChild(waveButtons);
-        
-        // Wave count buttons for kids (simple numbered buttons)
-        [3, 6, 9, 12, 15].forEach(count => {
-            const waveBtn = document.createElement('button');
-            waveBtn.textContent = count;
-            waveBtn.style.padding = '5px 10px';
-            waveBtn.style.backgroundColor = count === 8 ? '#7B1FA2' : '#9C27B0';
-            waveBtn.style.minWidth = '40px';
-            
-            waveBtn.addEventListener('click', () => {
-                customShaderMaterial.uniforms.waveCount.value = count;
-                
-                // Update active button state
-                document.querySelectorAll('.wave-count-btn').forEach(btn => {
-                    btn.style.backgroundColor = '#9C27B0';
-                });
-                waveBtn.style.backgroundColor = '#7B1FA2';
-            });
-            
-            waveBtn.className = 'wave-count-btn';
-            waveButtons.appendChild(waveBtn);
-        });
-        
-        // Color blend control
-        const blendSection = document.createElement('div');
-        controlsContainer.appendChild(blendSection);
-        
-        const blendTitle = document.createElement('div');
-        blendTitle.textContent = 'Color Blend:';
-        blendTitle.style.marginBottom = '5px';
-        blendSection.appendChild(blendTitle);
-        
-        const blendSlider = document.createElement('input');
-        blendSlider.type = 'range';
-        blendSlider.min = '0';
-        blendSlider.max = '1';
-        blendSlider.step = '0.1';
-        blendSlider.value = customShaderMaterial.uniforms.colorMix.value;
-        blendSlider.style.width = '100%';
-        blendSlider.style.accentColor = '#9C27B0';
-        blendSection.appendChild(blendSlider);
-        
-        blendSlider.addEventListener('input', () => {
-            customShaderMaterial.uniforms.colorMix.value = parseFloat(blendSlider.value);
-        });
+    // Initial shader parameters
+    const shaderUniforms = {
+        time: { value: 0 },
+        color1: { value: new THREE.Color(0x2196F3) },
+        color2: { value: new THREE.Color(0xFF9800) },
+        waveFrequency: { value: 10.0 },
+        waveAmplitude: { value: 0.5 },
+        blendFactor: { value: 0.8 }
     };
     
-    // Method to remove controls
-    shaderGroup.removeControls = function() {
-        if (this.controlsElements) {
-            this.controlsElements.forEach(element => {
-                if (element && element.parentNode) {
-                    element.parentNode.removeChild(element);
-                }
+    const shaderMaterial = new THREE.ShaderMaterial({
+        uniforms: shaderUniforms,
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+        side: THREE.DoubleSide
+    });
+    
+    // Create a plane to display the shader
+    const planeGeometry = new THREE.PlaneGeometry(2, 2, 32, 32);
+    const plane = new THREE.Mesh(planeGeometry, shaderMaterial);
+    group.add(plane);
+    
+    // Add shader control panel
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'shader-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Shader Controls</h3>
+        <div class="control-group">
+            <h4>Colors</h4>
+            <div class="color-control">
+                <label>Color 1</label>
+                <div class="button-group">
+                    <button data-color="#2196F3" class="color-button" style="background-color: #2196F3;"></button>
+                    <button data-color="#F44336" class="color-button" style="background-color: #F44336;"></button>
+                    <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;"></button>
+                </div>
+            </div>
+            <div class="color-control">
+                <label>Color 2</label>
+                <div class="button-group">
+                    <button data-color="#FF9800" class="color-button" style="background-color: #FF9800;"></button>
+                    <button data-color="#9C27B0" class="color-button" style="background-color: #9C27B0;"></button>
+                    <button data-color="#FFEB3B" class="color-button" style="background-color: #FFEB3B;"></button>
+                </div>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Wave Pattern</h4>
+            <div class="slider-group">
+                <label>Frequency</label>
+                <input type="range" min="1" max="30" step="1" value="10" id="frequency-slider">
+            </div>
+            <div class="slider-group">
+                <label>Amplitude</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.5" id="amplitude-slider">
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Blend Settings</h4>
+            <div class="slider-group">
+                <label>Blend Factor</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.8" id="blend-slider">
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('shader-controls')) {
+        // Color buttons for color 1
+        const color1Buttons = document.querySelectorAll('#shader-controls .color-control:nth-child(1) .color-button');
+        color1Buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                const colorValue = this.getAttribute('data-color');
+                shaderUniforms.color1.value.set(colorValue);
             });
-            this.controlsElements = [];
+        });
+        
+        // Color buttons for color 2
+        const color2Buttons = document.querySelectorAll('#shader-controls .color-control:nth-child(2) .color-button');
+        color2Buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                const colorValue = this.getAttribute('data-color');
+                shaderUniforms.color2.value.set(colorValue);
+            });
+        });
+        
+        // Frequency slider
+        const frequencySlider = document.getElementById('frequency-slider');
+        frequencySlider.addEventListener('input', function() {
+            shaderUniforms.waveFrequency.value = parseFloat(this.value);
+        });
+        
+        // Amplitude slider
+        const amplitudeSlider = document.getElementById('amplitude-slider');
+        amplitudeSlider.addEventListener('input', function() {
+            shaderUniforms.waveAmplitude.value = parseFloat(this.value);
+        });
+        
+        // Blend factor slider
+        const blendSlider = document.getElementById('blend-slider');
+        blendSlider.addEventListener('input', function() {
+            shaderUniforms.blendFactor.value = parseFloat(this.value);
+        });
+    }
+    
+    // Store controls reference for show/hide
+    stationControls.shaders = {
+        show: function() {
+            const controls = document.getElementById('shader-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('shader-controls');
+            if (controls) controls.style.display = 'none';
         }
     };
     
-    // Add animation function to the group
-    shaderGroup.update = function(time) {
-        // Update the shader time uniform
-        customShaderMaterial.uniforms.time.value = time;
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Update shader time uniform
+        shaderUniforms.time.value = time;
         
-        // Rotate the plane slowly
-        shaderPlane.rotation.z = time * 0.2;
+        // Rotate plane slowly
+        plane.rotation.y += delta * 0.2;
     };
     
-    return shaderGroup;
+    return group;
 }
 
 /**
  * Adds decorative elements to the world
  */
 function addWorldDecorations() {
-    // Add some trees
+    // Add trees around the world
     addTrees();
     
-    // Add a car model - Removed
-    // addCarModel();
-    
-    // Add some floating particles
+    // Add particle effects
     addParticles();
 }
 
 /**
- * Adds trees to the world
+ * Adds trees throughout the world for decoration
  */
 function addTrees() {
-    // Create a simple tree
-    function createTree(x, z) {
-        const treeGroup = new THREE.Group();
+    // Create trees at various positions
+    for (let i = 0; i < 20; i++) {
+        const x = (Math.random() - 0.5) * 80;
+        const z = (Math.random() - 0.5) * 80;
         
-        // Tree trunk - Larger
-        const trunkGeometry = new THREE.CylinderGeometry(0.4, 0.6, 3.0, 8); // Increased size
-        const trunkMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8B4513,
-            roughness: 0.9
-        });
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = 1.5; // Adjusted Y position for new height
-        treeGroup.add(trunk);
+        // Don't place trees too close to stations
+        let tooClose = false;
+        for (const stationKey in learningStations) {
+            const station = learningStations[stationKey];
+            const dx = station.position.x - x;
+            const dz = station.position.z - z;
+            const distSquared = dx*dx + dz*dz;
+            
+            if (distSquared < 100) { // 10 units radius
+                tooClose = true;
+                break;
+            }
+        }
         
-        // Tree foliage - Larger
-        const foliageGeometry = new THREE.ConeGeometry(2, 4, 8); // Increased size
-        const foliageMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2E8B57,
-            roughness: 0.8
-        });
-        const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
-        foliage.position.y = 5.0; // Adjusted Y position (trunk height + foliage height/2)
-        treeGroup.add(foliage);
-        
-        // Position the tree group base at terrain level (Y = -1 based on user's last change)
-        treeGroup.position.set(x, -1, z);
-        scene.add(treeGroup);
+        if (!tooClose) {
+            createTree(x, z);
+        }
     }
-    
-    // Add trees at various positions
-    const treePositions = [
-        [-20, -10], [25, -20], [-15, 25], [30, 15],
-        [-25, 5], [10, 30], [-30, -25], [20, -5]
-    ];
-    
-    treePositions.forEach(pos => {
-        createTree(pos[0], pos[1]);
-    });
 }
 
 /**
- * Adds a car model to the world - Entire function removed
+ * Creates a tree at the specified position
  */
-/*
-function addCarModel() {
-    // ... (car creation code) ...
-    return carGroup;
+function createTree(x, z) {
+    // Create trunk
+    const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 4, 8);
+    const trunkMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8B4513,
+        roughness: 0.9
+    });
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    trunk.position.set(x, 1, z);
+    trunk.castShadow = true;
+    scene.add(trunk);
+    
+    // Create foliage (leaves)
+    const foliageGeometry = new THREE.ConeGeometry(2, 5, 8);
+    const foliageMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2E8B57,
+        roughness: 0.8
+    });
+    const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+    foliage.position.set(x, 4, z);
+    foliage.castShadow = true;
+    scene.add(foliage);
 }
-*/
 
 /**
- * Adds floating particles to the world
+ * Adds particle effects to the world
  */
 function addParticles() {
-    // Create a particle system
-    const particleCount = 500;
+    // Create particles for atmospheric effect
+    const particleCount = 1000;
     const particles = new THREE.BufferGeometry();
     
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     
-    // Create random positions and colors for particles
     for (let i = 0; i < particleCount; i++) {
-        // Position
-        positions[i * 3] = (Math.random() - 0.5) * 100; // x
-        positions[i * 3 + 1] = Math.random() * 20 + 5;  // y
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 100; // z
+        // Position particles randomly within a large cube
+        positions[i * 3] = (Math.random() - 0.5) * 100;
+        positions[i * 3 + 1] = Math.random() * 20;  // Height up to 20 units
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
         
-        // Color
-        colors[i * 3] = Math.random(); // r
-        colors[i * 3 + 1] = Math.random(); // g
-        colors[i * 3 + 2] = Math.random(); // b
+        // Give particles a slight blue-white color
+        colors[i * 3] = 0.8 + Math.random() * 0.2;
+        colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+        colors[i * 3 + 2] = 0.9 + Math.random() * 0.1;
     }
     
     particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     
-    // Create particle material
     const particleMaterial = new THREE.PointsMaterial({
-        size: 0.2,
+        size: 0.1,
         vertexColors: true,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.5
     });
     
-    // Create the particle system
     const particleSystem = new THREE.Points(particles, particleMaterial);
     scene.add(particleSystem);
-    
-    // Add animation for particles
-    particleSystem.update = function(time) {
-        const positions = particles.attributes.position.array;
-        
-        for (let i = 0; i < particleCount; i++) {
-            // Make particles float up and down
-            positions[i * 3 + 1] += Math.sin(time + i) * 0.01;
-            
-            // Reset particles that go too high or too low
-            if (positions[i * 3 + 1] > 30) positions[i * 3 + 1] = 5;
-            if (positions[i * 3 + 1] < 5) positions[i * 3 + 1] = 30;
-        }
-        
-        particles.attributes.position.needsUpdate = true;
-    };
-    
-    return particleSystem;
 }
 
 /**
- * Updates all animated elements in the world
- */
-function updateWorld(time) {
-    const delta = clock.getDelta(); // Get delta time here for updates
-
-    // Update learning station demos
-    for (const stationKey in learningStations) {
-        const station = learningStations[stationKey];
-        if (station.demoObject && station.demoObject.update && station.demoObject.visible) {
-            // Pass both elapsed time and delta time if needed
-            station.demoObject.update(time, delta);
-        }
-    }
-    
-    // Update particle system
-    if (scene.getObjectByName('particles') && scene.getObjectByName('particles').update) {
-        scene.getObjectByName('particles').update(time);
-    }
-}
-
-/**
- * Checks if the player is near a learning station and activates it if so
- */
-function checkStationProximity() {
-    try {
-        // Get player position
-        const playerPosition = camera.position;
-        
-        // Check distance to each station
-        let nearestStation = null;
-        let nearestDistance = 5; // Activation radius
-        
-        for (const stationKey in learningStations) {
-            const station = learningStations[stationKey];
-            const distance = playerPosition.distanceTo(station.position);
-            
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestStation = station;
-            }
-        }
-        
-        // Activate nearest station, deactivate others
-        if (nearestStation !== currentStation) {
-            // Deactivate current station if there is one
-            if (currentStation) {
-                currentStation.deactivate();
-            }
-            
-            // Activate new station if there is one
-            if (nearestStation) {
-                nearestStation.activate();
-            } else {
-                // No station is nearby, reset UI
-                const currentTopicElement = document.getElementById('current-topic');
-                if (currentTopicElement) {
-                    currentTopicElement.textContent = 'Explore';
-                }
-                
-                const topicDescriptionElement = document.getElementById('topic-description');
-                if (topicDescriptionElement) {
-                    topicDescriptionElement.innerHTML = 
-                        '<p>Move around the 3D world to discover learning stations about computer graphics concepts.</p>';
-                }
-                
-                currentStation = null;
-            }
-        }
-    } catch (error) {
-        console.error('Error in checkStationProximity:', error);
-    }
-}
-
-/**
- * Creates simple walls at the edge of the world
+ * Creates a world border to prevent players from leaving the area
  */
 function createWorldBorder() {
-    const wallHeight = 20;
-    const wallThickness = 1;
-    const worldSize = 100; // Match terrain size
-    const wallOffset = worldSize / 2 + wallThickness / 2; // Place walls just outside terrain
-
-    const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x666666, side: THREE.DoubleSide });
-
-    // Wall Geometry (long side)
-    const wallGeometryX = new THREE.BoxGeometry(worldSize + wallThickness * 2, wallHeight, wallThickness);
-    // Wall Geometry (short side)
-    const wallGeometryZ = new THREE.BoxGeometry(wallThickness, wallHeight, worldSize + wallThickness * 2);
-
-    // Wall +Z
-    const wallPosZ = new THREE.Mesh(wallGeometryX, wallMaterial);
-    wallPosZ.position.set(0, wallHeight / 2 - 1, wallOffset); // Adjust Y based on terrain Y=-1
-    scene.add(wallPosZ);
-
-    // Wall -Z
-    const wallNegZ = new THREE.Mesh(wallGeometryX, wallMaterial);
-    wallNegZ.position.set(0, wallHeight / 2 - 1, -wallOffset); // Adjust Y based on terrain Y=-1
-    scene.add(wallNegZ);
-
-    // Wall +X
-    const wallPosX = new THREE.Mesh(wallGeometryZ, wallMaterial);
-    wallPosX.position.set(wallOffset, wallHeight / 2 - 1, 0); // Adjust Y based on terrain Y=-1
-    scene.add(wallPosX);
-
-    // Wall -X
-    const wallNegX = new THREE.Mesh(wallGeometryZ, wallMaterial);
-    wallNegX.position.set(-wallOffset, wallHeight / 2 - 1, 0); // Adjust Y based on terrain Y=-1
-    scene.add(wallNegX);
-
-    console.log('World border walls created');
+    const wallHeight = 10;
+    const worldSize = 50;
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0x888888,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+    });
+    
+    // Create four walls
+    const walls = [
+        // North wall
+        { pos: [0, wallHeight/2 - 1, -worldSize], size: [worldSize*2, wallHeight, 0.5] },
+        // South wall
+        { pos: [0, wallHeight/2 - 1, worldSize], size: [worldSize*2, wallHeight, 0.5] },
+        // East wall
+        { pos: [worldSize, wallHeight/2 - 1, 0], size: [0.5, wallHeight, worldSize*2] },
+        // West wall
+        { pos: [-worldSize, wallHeight/2 - 1, 0], size: [0.5, wallHeight, worldSize*2] }
+    ];
+    
+    walls.forEach(wall => {
+        const geometry = new THREE.BoxGeometry(wall.size[0], wall.size[1], wall.size[2]);
+        const mesh = new THREE.Mesh(geometry, wallMaterial);
+        mesh.position.set(wall.pos[0], wall.pos[1], wall.pos[2]);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+    });
 }
 
 // Ensure functions are properly exposed to the global scope
@@ -1482,4 +1306,17 @@ if (typeof createWorld !== 'function') {
     console.log('Functions explicitly exposed to window object');
 } else {
     console.log('createWorld function is properly defined in the global scope');
-} 
+}
+
+//=============================================================================
+// EXPORTS
+//=============================================================================
+
+// Export public functions and variables
+export {
+    initWorld,
+    updateWorld,
+    checkStationProximity,
+    learningStations,
+    terrain
+}; 

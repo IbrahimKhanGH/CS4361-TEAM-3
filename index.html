@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Computer Graphics Learning Studio</title>
     <link rel="stylesheet" href="css/styles.css">
-    <!-- External Libraries - Load these BEFORE our scripts -->
+    <!-- load external libraries first -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/examples/js/controls/PointerLockControls.js"></script>
     <style>
@@ -33,12 +33,6 @@
             margin-top: 10px;
             display: none;
         }
-        .control-buttons {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
         .control-button {
             padding: 8px 15px;
             background: #4CAF50;
@@ -53,6 +47,7 @@
     </style>
 </head>
 <body>
+    <!-- loading screen -->
     <div id="loading-screen">
         <div class="loader"></div>
         <h2>Loading Graphics Studio...</h2>
@@ -64,6 +59,7 @@
         <div id="error-message"></div>
     </div>
 
+    <!-- instructions overlay -->
     <div id="instructions" style="display: none;">
         <div class="instruction-content">
             <h1>Computer Graphics Learning Studio</h1>
@@ -81,14 +77,17 @@
         </div>
     </div>
 
+    <!-- main container for 3d canvas -->
     <div id="canvas-container">
         <!-- Three.js will render here -->
     </div>
 
+    <!-- info popup that appears when near stations -->
     <div class="info-panel">
         <!-- Info messages will appear here -->
     </div>
 
+    <!-- sidebar ui panel -->
     <div id="ui-panel">
         <h1>Graphics Learning Studio</h1>
         <div id="main-content">
@@ -113,305 +112,104 @@
         </div>
     </div>
     
-    <!-- Application Scripts - Order matters for dependencies -->
-    <!-- Load scripts with explicit onload handlers to ensure proper loading -->
+    <!-- application scripts - load in sequence -->
     <script>
-        // Track script loading status
-        window.scriptStatus = {
-            ui: false,
-            world: false,
-            firstPersonControls: false,
-            main: false
-        };
+        // load scripts in correct order
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('loading scripts...');
+            
+            // load ui.js first
+            loadScript('js/ui.js', function() {
+                // then load world.js
+                loadScript('js/world.js', function() {
+                    // then load controls
+                    loadScript('js/firstPersonControls.js', function() {
+                        // finally load main.js and initialize
+                        loadScript('js/main.js', function() {
+                            console.log('all scripts loaded, starting app');
+                            
+                            // start the app
+                            if (typeof init === 'function') {
+                                init();
+                            } else {
+                                showError('Initialization function missing');
+                            }
+                        });
+                    });
+                });
+            });
+            
+            // start loading animation
+            simulateLoading();
+            
+            // start experience button in instructions
+            document.getElementById('start-experience').addEventListener('click', function() {
+                document.getElementById('instructions').style.display = 'none';
+                
+                // try to get pointer lock
+                if (typeof window.controls !== 'undefined' && window.controls && window.controls.lock) {
+                    try {
+                        window.controls.lock();
+                    } catch (error) {
+                        console.error('pointer lock error:', error);
+                    }
+                }
+            });
+        });
         
-        // Function to check if all required functions are available
-        window.checkRequiredFunctions = function() {
-            const functionStatus = document.getElementById('function-status');
-            if (!functionStatus) return;
-            
-            let statusHTML = '<h4>Function Status:</h4>';
-            
-            // Check UI functions
-            statusHTML += 'UI.js: ' + (window.scriptStatus.ui ? '✓' : '✗') + '<br>';
-            statusHTML += '- updateStationInfo: ' + (typeof updateStationInfo === 'function' ? '✓' : '✗') + '<br>';
-            
-            // Check World functions
-            statusHTML += 'World.js: ' + (window.scriptStatus.world ? '✓' : '✗') + '<br>';
-            statusHTML += '- createWorld: ' + (typeof createWorld === 'function' ? '✓' : '✗') + '<br>';
-            statusHTML += '- createSkybox: ' + (typeof createSkybox === 'function' ? '✓' : '✗') + '<br>';
-            statusHTML += '- createTerrain: ' + (typeof createTerrain === 'function' ? '✓' : '✗') + '<br>';
-            statusHTML += '- checkStationProximity: ' + (typeof checkStationProximity === 'function' ? '✓' : '✗') + '<br>';
-            
-            // Check FirstPersonControls functions
-            statusHTML += 'FirstPersonControls.js: ' + (window.scriptStatus.firstPersonControls ? '✓' : '✗') + '<br>';
-            statusHTML += '- initFirstPersonControls: ' + (typeof initFirstPersonControls === 'function' ? '✓' : '✗') + '<br>';
-            statusHTML += '- updateFirstPersonControls: ' + (typeof updateFirstPersonControls === 'function' ? '✓' : '✗') + '<br>';
-            
-            // Check Main functions
-            statusHTML += 'Main.js: ' + (window.scriptStatus.main ? '✓' : '✗') + '<br>';
-            statusHTML += '- init: ' + (typeof init === 'function' ? '✓' : '✗') + '<br>';
-            statusHTML += '- animate: ' + (typeof animate === 'function' ? '✓' : '✗') + '<br>';
-            
-            functionStatus.innerHTML = statusHTML;
-            console.log('Function check completed');
-        };
-        
-        // Create script loading function
-        function loadScript(src, onload, id) {
+        // helper to load script
+        function loadScript(src, onload) {
             const script = document.createElement('script');
             script.src = src;
-            script.id = id;
-            script.onload = function() {
-                console.log(`Script loaded: ${src}`);
-                if (onload) onload();
-            };
+            script.onload = onload;
             script.onerror = function() {
-                console.error(`Error loading script: ${src}`);
-                const errorElement = document.getElementById('error-message');
-                if (errorElement) {
-                    errorElement.textContent = `Failed to load script: ${src}`;
-                    errorElement.style.display = 'block';
-                }
+                console.error(`error loading: ${src}`);
+                showError(`Failed to load ${src}`);
             };
             document.body.appendChild(script);
         }
         
-        // Load scripts in sequence to ensure proper dependency order
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM content loaded, loading scripts sequentially');
+        // show fake loading progress
+        function simulateLoading() {
+            const progressBar = document.getElementById('progress-bar');
+            const loadingStatus = document.getElementById('loading-status');
+            let progress = 0;
             
-            // Load UI.js first
-            loadScript('js/ui.js', function() {
-                console.log('UI.js loaded');
-                window.scriptStatus.ui = true;
-                
-                // Then load World.js
-                loadScript('js/world.js', function() {
-                    console.log('World.js loaded');
-                    window.scriptStatus.world = true;
-                    
-                    // Check if createWorld is defined
-                    if (typeof createWorld !== 'function') {
-                        console.error('createWorld function not defined after loading world.js');
-                    } else {
-                        console.log('createWorld function is available');
-                    }
-                    
-                    // Then load FirstPersonControls.js
-                    loadScript('js/firstPersonControls.js', function() {
-                        console.log('FirstPersonControls.js loaded');
-                        window.scriptStatus.firstPersonControls = true;
-                        
-                        // Finally load Main.js
-                        loadScript('js/main.js', function() {
-                            console.log('Main.js loaded');
-                            window.scriptStatus.main = true;
-                            
-                            // Check all required functions
-                            window.checkRequiredFunctions();
-                            
-                            // Call init() now that all scripts are loaded
-                            if (typeof init === 'function') {
-                                console.log('Calling init()...');
-                                init();
-                            } else {
-                                console.error('init function not found after loading main.js!');
-                                showError('Core initialization function failed to load.');
-                            }
-                        }, 'main-script');
-                    }, 'controls-script');
-                }, 'world-script');
-            }, 'ui-script');
-            
-            // Check if THREE is available
-            if (typeof THREE === 'undefined') {
-                showError('THREE.js library failed to load. Please check your internet connection and try again.');
-                return;
-            }
-            
-            console.log('THREE available:', typeof THREE !== 'undefined');
-            console.log('PointerLockControls available:', 
-                typeof THREE !== 'undefined' && typeof THREE.PointerLockControls !== 'undefined');
-            
-            // Simulate loading progress
-            simulateLoading();
-            
-            // Add skip loading button functionality
-            document.getElementById('skip-loading').addEventListener('click', function() {
-                console.log('Skip loading button clicked');
-                document.getElementById('loading-screen').style.display = 'none';
-                document.getElementById('instructions').style.display = 'flex';
-            });
-            
-            // Add reload page button functionality
-            document.getElementById('reload-page').addEventListener('click', function() {
-                window.location.reload();
-            });
-            
-            // Add check functions button functionality
-            document.getElementById('check-functions').addEventListener('click', function() {
-                window.checkRequiredFunctions();
-            });
-            
-            // Start experience button in instructions
-            const startExperienceButton = document.getElementById('start-experience');
-            if (startExperienceButton) {
-                startExperienceButton.addEventListener('click', function() {
-                    console.log('Start experience button clicked');
-                    document.getElementById('instructions').style.display = 'none';
-                    forcePointerLock();
-                });
-            }
-            
-            // Function to force pointer lock
-            function forcePointerLock() {
-                updatePointerLockStatus('Attempting force lock...');
-                
-                // Make sure the app is initialized first
-                if (!window.appInitialized) {
-                    console.log('App not initialized yet, initializing now...');
-                    if (typeof init === 'function') {
-                        init();
-                    }
-                    
-                    // Wait for initialization to complete
-                    document.addEventListener('appInitialized', function() {
-                        console.log('App initialized event received, now trying pointer lock');
-                        attemptPointerLock();
-                    }, { once: true });
-                    
+            const interval = setInterval(function() {
+                progress += 5;
+                if (progress > 100) {
+                    clearInterval(interval);
                     return;
                 }
                 
-                attemptPointerLock();
-            }
-            
-            // Attempt to get pointer lock using various methods
-            function attemptPointerLock() {
-                // Try different methods to get pointer lock
-                if (typeof window.controls !== 'undefined' && window.controls && window.controls.lock) {
-                    try {
-                        window.controls.lock();
-                        console.log('Requested pointer lock via controls.lock()');
-                    } catch (error) {
-                        console.error('Error requesting pointer lock via controls:', error);
-                        tryDirectPointerLock();
-                    }
-                } else {
-                    console.log('Controls not available, trying direct pointer lock');
-                    tryDirectPointerLock();
-                }
-            }
-            
-            // Try to get pointer lock directly on the canvas
-            function tryDirectPointerLock() {
-                // Get the canvas using our helper function
-                const canvas = typeof getCanvas === 'function' ? getCanvas() : document.querySelector('canvas');
+                progressBar.style.width = progress + '%';
                 
-                if (canvas) {
-                    console.log('Canvas found:', canvas);
-                    try {
-                        if (canvas.requestPointerLock) {
-                            canvas.requestPointerLock();
-                            console.log('Requested pointer lock directly on canvas');
-                        } else {
-                            console.error('requestPointerLock not available on canvas');
-                            showPointerLockError('Browser does not support Pointer Lock API');
-                        }
-                    } catch (error) {
-                        console.error('Error requesting direct pointer lock:', error);
-                        showPointerLockError(error.message || 'Unknown error');
-                    }
-                } else {
-                    console.error('Canvas element not found');
-                    showPointerLockError('Canvas not found - try the Emergency Start button');
+                if (progress === 20) {
+                    loadingStatus.textContent = 'Loading 3D environment...';
+                } else if (progress === 40) {
+                    loadingStatus.textContent = 'Preparing textures...';
+                } else if (progress === 60) {
+                    loadingStatus.textContent = 'Setting up controls...';
+                } else if (progress === 80) {
+                    loadingStatus.textContent = 'Creating learning stations...';
+                } else if (progress === 100) {
+                    loadingStatus.textContent = 'Ready!';
+                    // hide loading screen when done
+                    setTimeout(function() {
+                        document.getElementById('loading-screen').style.display = 'none';
+                        document.getElementById('instructions').style.display = 'flex';
+                    }, 1000);
                 }
-            }
-            
-            // Show pointer lock error message
-            function showPointerLockError(message) {
-                updatePointerLockStatus('Error: ' + message);
-                
-                // Show error in the error message area
-                const errorElement = document.getElementById('error-message');
-                if (errorElement) {
-                    errorElement.textContent = 'Pointer Lock Error: ' + message;
-                    errorElement.style.display = 'block';
-                }
-            }
-            
-            // Update pointer lock status display
-            function updatePointerLockStatus(status) {
-                const statusElement = document.getElementById('pointer-lock-status');
-                if (statusElement) {
-                    statusElement.textContent = 'Pointer Lock: ' + status;
-                }
-            }
-            
-            // Listen for pointer lock change
-            document.addEventListener('pointerlockchange', function() {
-                if (document.pointerLockElement) {
-                    updatePointerLockStatus('Locked');
-                    console.log('Pointer lock acquired via pointerlockchange event');
-                } else {
-                    updatePointerLockStatus('Unlocked');
-                    console.log('Pointer lock released via pointerlockchange event');
-                }
-            });
-            
-            // Listen for pointer lock error
-            document.addEventListener('pointerlockerror', function(event) {
-                updatePointerLockStatus('Error: ' + (event.message || 'Unknown error'));
-                console.error('Pointer lock error:', event);
-            });
-            
-            // Simulate loading progress
-            function simulateLoading() {
-                const progressBar = document.getElementById('progress-bar');
-                const loadingStatus = document.getElementById('loading-status');
-                let progress = 0;
-                
-                const interval = setInterval(function() {
-                    progress += 5;
-                    if (progress > 100) {
-                        clearInterval(interval);
-                        return;
-                    }
-                    
-                    progressBar.style.width = progress + '%';
-                    
-                    if (progress === 20) {
-                        loadingStatus.textContent = 'Loading 3D environment...';
-                    } else if (progress === 40) {
-                        loadingStatus.textContent = 'Preparing textures...';
-                    } else if (progress === 60) {
-                        loadingStatus.textContent = 'Setting up controls...';
-                    } else if (progress === 80) {
-                        loadingStatus.textContent = 'Creating learning stations...';
-                    } else if (progress === 100) {
-                        loadingStatus.textContent = 'Ready!';
-                        // Try to hide loading screen after progress is complete
-                        setTimeout(function() {
-                            const loadingScreen = document.getElementById('loading-screen');
-                            if (loadingScreen && loadingScreen.style.display !== 'none') {
-                                console.log('Hiding loading screen after progress completion');
-                                loadingScreen.style.display = 'none';
-                            }
-                        }, 1000);
-                    }
-                }, 100);
-            }
-            
-            // Show error message
-            function showError(message) {
-                const errorElement = document.getElementById('error-message');
-                errorElement.textContent = message;
-                errorElement.style.display = 'block';
-                
-                const progressBar = document.getElementById('progress-bar');
-                progressBar.style.backgroundColor = '#ff6b6b';
-            }
-        });
+            }, 100);
+        }
+        
+        // show error message
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            document.getElementById('progress-bar').style.backgroundColor = '#ff6b6b';
+        }
     </script>
 </body>
 </html> 
