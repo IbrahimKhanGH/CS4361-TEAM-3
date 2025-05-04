@@ -707,12 +707,12 @@ function createLightingDemo(position, color) {
         <h3>Lighting Controls</h3>
         <div class="control-group">
             <h4>Light Color</h4>
-            <div class="button-group">
-                <button data-color="#FFFFFF" class="color-button" style="background-color: #FFFFFF;">Sunshine</button>
-                <button data-color="#FF9800" class="color-button" style="background-color: #FF9800;">Orange Glow</button>
-                <button data-color="#2196F3" class="color-button" style="background-color: #2196F3;">Blueberry</button>
-                <button data-color="#E91E63" class="color-button" style="background-color: #E91E63;">Pink</button>
-                <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;">Mint</button>
+            <div class="button-group" style="display: flex; flex-wrap: wrap; gap: 5px;">
+                <button data-color="#FFFFFF" class="color-button" style="background-color: #FFFFFF; flex: 1; min-width: 80px;">Sunshine</button>
+                <button data-color="#FF9800" class="color-button" style="background-color: #FF9800; flex: 1; min-width: 80px;">Orange Glow</button>
+                <button data-color="#2196F3" class="color-button" style="background-color: #2196F3; flex: 1; min-width: 80px;">Blueberry</button>
+                <button data-color="#E91E63" class="color-button" style="background-color: #E91E63; flex: 1; min-width: 80px;">Pink</button>
+                <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50; flex: 1; min-width: 80px;">Mint</button>
             </div>
         </div>
         <div class="control-group">
@@ -1236,11 +1236,12 @@ function createShaderDemo(position, color) {
         varying vec3 vPosition;
         
         void main() {
-            // Create a wave pattern
+            // Create a more distinctive wave pattern
             float wave = sin(vUv.x * waveFrequency + time) * sin(vUv.y * waveFrequency + time) * waveAmplitude;
             
-            // Mix colors based on wave pattern
-            vec3 mixedColor = mix(color1, color2, wave * blendFactor + 0.5);
+            // Make color2 more prominent by adjusting the blend factor
+            // This ensures a more balanced mix between color1 and color2
+            vec3 mixedColor = mix(color1, color2, (wave * blendFactor + 0.5));
             
             gl_FragColor = vec4(mixedColor, 1.0);
         }
@@ -1253,7 +1254,7 @@ function createShaderDemo(position, color) {
         color2: { value: new THREE.Color(0xFF9800) },
         waveFrequency: { value: 10.0 },
         waveAmplitude: { value: 0.5 },
-        blendFactor: { value: 0.8 }
+        blendFactor: { value: 1.0 }
     };
     
     const shaderMaterial = new THREE.ShaderMaterial({
@@ -1280,17 +1281,17 @@ function createShaderDemo(position, color) {
             <div class="color-control">
                 <label>Color 1</label>
                 <div class="button-group">
-                    <button data-color="#2196F3" class="color-button" style="background-color: #2196F3;"></button>
-                    <button data-color="#F44336" class="color-button" style="background-color: #F44336;"></button>
-                    <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;"></button>
+                    <button data-target="color1" data-color="#2196F3" class="color-button" style="background-color: #2196F3;"></button>
+                    <button data-target="color1" data-color="#F44336" class="color-button" style="background-color: #F44336;"></button>
+                    <button data-target="color1" data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;"></button>
                 </div>
             </div>
             <div class="color-control">
                 <label>Color 2</label>
                 <div class="button-group">
-                    <button data-color="#FF9800" class="color-button" style="background-color: #FF9800;"></button>
-                    <button data-color="#9C27B0" class="color-button" style="background-color: #9C27B0;"></button>
-                    <button data-color="#FFEB3B" class="color-button" style="background-color: #FFEB3B;"></button>
+                    <button data-target="color2" data-color="#FF9800" class="color-button" style="background-color: #FF9800;"></button>
+                    <button data-target="color2" data-color="#9C27B0" class="color-button" style="background-color: #9C27B0;"></button>
+                    <button data-target="color2" data-color="#FFEB3B" class="color-button" style="background-color: #FFEB3B;"></button>
                 </div>
             </div>
         </div>
@@ -1309,7 +1310,7 @@ function createShaderDemo(position, color) {
             <h4>Blend Settings</h4>
             <div class="slider-group">
                 <label>Blend Factor</label>
-                <input type="range" min="0" max="1" step="0.1" value="0.8" id="blend-slider">
+                <input type="range" min="0" max="1" step="0.1" value="1.0" id="blend-slider">
             </div>
         </div>
     `;
@@ -1317,21 +1318,21 @@ function createShaderDemo(position, color) {
     
     // Add event listeners for the controls
     if (document.getElementById('shader-controls')) {
-        // Color buttons for color 1
-        const color1Buttons = document.querySelectorAll('#shader-controls .color-control:nth-child(1) .color-button');
-        color1Buttons.forEach(button => {
+        // Single event handler for all color buttons
+        const colorButtons = document.querySelectorAll('#shader-controls .color-button');
+        colorButtons.forEach(button => {
             button.addEventListener('click', function() {
                 const colorValue = this.getAttribute('data-color');
-                shaderUniforms.color1.value.set(colorValue);
-            });
-        });
-        
-        // Color buttons for color 2
-        const color2Buttons = document.querySelectorAll('#shader-controls .color-control:nth-child(2) .color-button');
-        color2Buttons.forEach(button => {
-            button.addEventListener('click', function() {
-                const colorValue = this.getAttribute('data-color');
-                shaderUniforms.color2.value.set(colorValue);
+                const targetColor = this.getAttribute('data-target');
+                
+                // Set the right uniform based on the button's data-target attribute
+                if (targetColor === 'color1') {
+                    shaderUniforms.color1.value.set(colorValue);
+                    console.log('Color 1 changed to:', colorValue);
+                } else if (targetColor === 'color2') {
+                    shaderUniforms.color2.value.set(colorValue);
+                    console.log('Color 2 changed to:', colorValue);
+                }
             });
         });
         
