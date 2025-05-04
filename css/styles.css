@@ -1,3 +1,9 @@
+/* UTD Colors 
+   Primary: #E87500 (Orange)
+   Secondary: #154734 (Green)
+   Accent: #9EA2A2 (Silver/Gray)
+*/
+
 * {
     margin: 0;
     padding: 0;
@@ -27,11 +33,11 @@ canvas {
     width: 300px;
     height: auto;
     max-height: 100%;
-    background-color: rgba(30, 30, 30, 0.7);
+    background-color: rgba(21, 71, 52, 0.85); /* UTD Green with opacity */
     color: white;
     padding: 20px;
     overflow-y: auto;
-    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-left: 3px solid #E87500; /* UTD Orange border */
     transform: translateX(300px);
     transition: transform 0.3s ease-in-out;
 }
@@ -42,7 +48,7 @@ canvas {
 
 h1, h2 {
     margin-bottom: 15px;
-    color: #4CAF50;
+    color: #E87500; /* UTD Orange */
 }
 
 p {
@@ -54,7 +60,8 @@ p {
     margin-bottom: 20px;
     background-color: rgba(0, 0, 0, 0.2);
     padding: 15px;
-    border-radius: 5px;
+    border-radius: 10px; /* More rounded corners for kid-friendly look */
+    border: 1px solid rgba(232, 117, 0, 0.3); /* UTD Orange border */
 }
 
 /* Add styles for the scrollable description box */
@@ -65,7 +72,7 @@ p {
     margin-top: 10px; /* Add some space above */
     border: 1px solid #444; /* Optional border */
     background-color: rgba(0, 0, 0, 0.1); /* Optional background */
-    border-radius: 3px;
+    border-radius: 8px; /* More rounded for kid-friendly */
 }
 
 #topic-description p {
@@ -73,7 +80,7 @@ p {
 }
 
 button {
-    background-color: #4CAF50;
+    background-color: #E87500; /* UTD Orange */
     border: none;
     color: white;
     padding: 8px 16px;
@@ -83,11 +90,13 @@ button {
     font-size: 14px;
     margin: 4px 2px;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 8px; /* More rounded for kid-friendly */
+    box-shadow: 0 3px 5px rgba(0,0,0,0.2); /* Add subtle shadow for depth */
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: #FF8C1A; /* Lighter orange for hover */
+    transform: scale(1.05); /* Slight grow effect for kid-friendly UI */
 }
 
 .tooltip {
@@ -121,7 +130,7 @@ button:hover {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: #2c3e50;
+    background-color: #154734; /* UTD Green */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -132,7 +141,7 @@ button:hover {
 
 .loader {
     border: 8px solid #f3f3f3;
-    border-top: 8px solid #3498db;
+    border-top: 8px solid #E87500; /* UTD Orange */
     border-radius: 50%;
     width: 50px;
     height: 50px;
@@ -238,7 +247,7 @@ button:hover {
     position: absolute;
     top: 20px;
     right: 20px;
-    background-color: rgba(30, 30, 30, 0.7);
+    background-color: #E87500; /* UTD Orange */
     color: white;
     width: 40px;
     height: 40px;
@@ -251,10 +260,12 @@ button:hover {
     border: none;
     outline: none;
     font-size: 20px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3); /* Add shadow for depth */
 }
 
 #ui-toggle:hover {
-    background-color: rgba(76, 175, 80, 0.7);
+    background-color: #FF8C1A; /* Lighter orange for hover */
+    transform: scale(1.1); /* Slight grow effect for kid-friendly UI */
 }
 
 /* Station interactive controls */
@@ -262,23 +273,31 @@ button:hover {
     position: absolute;
     top: 20%;
     right: 300px;
-    background: rgba(20, 20, 20, 0.9);
+    background: rgba(21, 71, 52, 0.85); /* UTD Green with opacity */
     color: white;
     padding: 20px;
-    border-radius: 10px;
+    border-radius: 15px; /* More rounded for kid-friendly */
     z-index: 100;
-    width: 250px;
+    width: 270px;
     max-height: 500px;
     overflow-y: auto;
     font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    border: 3px solid #E87500; /* UTD Orange border */
 }
 
 .station-controls h3 {
-    color: #FFC107;
+    color: #E87500; /* UTD Orange */
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
     letter-spacing: 1px;
+    font-size: 1.3em; /* Slightly larger for kid-friendly */
+    margin-bottom: 15px;
+}
+
+.station-controls h4 {
+    color: white;
+    font-size: 1.1em;
+    margin-bottom: 10px;
 }
 
 .station-controls button {
@@ -480,4 +499,12 @@ button:hover {
     border-radius: 50%;
     margin: 0 5px;
     border: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+#progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #E87500; /* UTD Orange */
+    transition: width 0.3s;
+    border-radius: 10px;
 } 

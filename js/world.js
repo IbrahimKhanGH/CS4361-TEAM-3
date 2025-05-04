@@ -52,6 +52,8 @@ function createWorld() {
         return;
     }
     
+    console.log('Creating Team 3 UTD Graphics Learning World...');
+    
     // make skybox
     createSkybox();
     
@@ -66,6 +68,8 @@ function createWorld() {
 
     // add world boundaries
     createWorldBorder();
+    
+    console.log('Team 3 UTD Graphics Learning World created successfully!');
 }
 
 /**
@@ -434,31 +438,50 @@ function createStationDemoObject(stationType, position, color) {
     
     console.log('Creating station demo for type:', type);
     
-    switch(type) {
-        case 'pipeline':
-            demoObject = createPipelineDemo(position, color);
-            break;
-        case 'lighting':
-            demoObject = createLightingDemo(position, color);
-            break;
-        case 'texturing':
-            demoObject = createTexturingDemo(position, color);
-            break;
-        case 'geometry':
-            demoObject = createGeometryDemo(position, color);
-            break;
-        case 'shaders':
-            demoObject = createShaderDemo(position, color);
-            break;
-        default:
-            console.warn('Unknown station type:', stationType, 'Cleaned type:', type);
-            // Create a fallback demo object
-            const geometry = new THREE.SphereGeometry(1, 32, 32);
-            const material = new THREE.MeshBasicMaterial({ color: color });
-            demoObject = new THREE.Mesh(geometry, material);
-            demoObject.position.copy(position);
-            demoObject.position.y += 2;
-            scene.add(demoObject);
+    // First, match against exact name
+    if (type === 'pipeline' || type === 'the pipeline' || type === 'graphics pipeline') {
+        demoObject = createPipelineDemo(position, color);
+    } 
+    else if (type === 'lighting' || type === 'light' || type === 'lighting model') {
+        demoObject = createLightingDemo(position, color);
+    } 
+    else if (type === 'texturing' || type === 'texture' || type === 'textures') {
+        demoObject = createTexturingDemo(position, color);
+    } 
+    else if (type === 'geometry' || type === 'shapes' || type === 'geometric') {
+        demoObject = createGeometryDemo(position, color);
+    } 
+    else if (type === 'shaders' || type === 'shader' || type === 'shading') {
+        demoObject = createShaderDemo(position, color);
+    }
+    else {
+        // Fallback to switch with exact matches only
+        switch(type) {
+            case 'pipeline':
+                demoObject = createPipelineDemo(position, color);
+                break;
+            case 'lighting':
+                demoObject = createLightingDemo(position, color);
+                break;
+            case 'texturing':
+                demoObject = createTexturingDemo(position, color);
+                break;
+            case 'geometry':
+                demoObject = createGeometryDemo(position, color);
+                break;
+            case 'shaders':
+                demoObject = createShaderDemo(position, color);
+                break;
+            default:
+                console.warn('Unknown station type:', stationType, 'Cleaned type:', type);
+                // Create a fallback demo object
+                const geometry = new THREE.SphereGeometry(1, 32, 32);
+                const material = new THREE.MeshBasicMaterial({ color: color });
+                demoObject = new THREE.Mesh(geometry, material);
+                demoObject.position.copy(position);
+                demoObject.position.y += 2;
+                scene.add(demoObject);
+        }
     }
     
     if (demoObject) {
@@ -535,7 +558,7 @@ function createPipelineDemo(position, color) {
         group.add(stageIndicator);
     });
     
-    // Add control panel for pipeline demo
+    // Create control panel for pipeline demo
     const controlPanel = document.createElement('div');
     controlPanel.id = 'pipeline-controls';
     controlPanel.className = 'station-controls';
@@ -544,13 +567,19 @@ function createPipelineDemo(position, color) {
         <h3>Pipeline Controls</h3>
         <div class="control-group">
             <h4>Current Stage</h4>
-            <div class="button-group">
-                <button id="stage-vertex" class="stage-button">Vertex</button>
-                <button id="stage-tessellation" class="stage-button">Tessellation</button>
-                <button id="stage-geometry" class="stage-button">Geometry</button>
-                <button id="stage-rasterization" class="stage-button">Rasterization</button>
-                <button id="stage-fragment" class="stage-button">Fragment</button>
-                <button id="stage-output" class="stage-button">Output</button>
+            <div class="button-group" style="display: flex; flex-wrap: wrap; gap: 5px;">
+                <button id="stage-vertex" class="stage-button" style="flex: 1; min-width: 80px;">Vertex</button>
+                <button id="stage-tessellation" class="stage-button" style="flex: 1; min-width: 80px;">Tessellation</button>
+                <button id="stage-geometry" class="stage-button" style="flex: 1; min-width: 80px;">Geometry</button>
+                <button id="stage-rasterization" class="stage-button" style="flex: 1; min-width: 80px;">Rasterization</button>
+                <button id="stage-fragment" class="stage-button" style="flex: 1; min-width: 80px;">Fragment</button>
+                <button id="stage-output" class="stage-button" style="flex: 1; min-width: 80px;">Output</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Stage Description</h4>
+            <div id="pipeline-stage-description" style="background: rgba(0, 0, 0, 0.3); padding: 10px; border-radius: 5px; min-height: 80px;">
+                Select a stage to see its description
             </div>
         </div>
         <div class="control-group">
@@ -564,13 +593,38 @@ function createPipelineDemo(position, color) {
     `;
     document.body.appendChild(controlPanel);
     
+    // Add stage descriptions
+    const stageDescriptions = {
+        vertex: "Vertex Processing transforms 3D vertex positions into screen space coordinates. It handles per-vertex operations like transformations, skinning, and morphing.",
+        tessellation: "Tessellation subdivides geometry into smaller primitives to add detail. It can dynamically increase mesh resolution based on distance or importance.",
+        geometry: "Geometry Shading works with complete primitives, allowing creation or elimination of vertices. It can generate new geometry procedurally.",
+        rasterization: "Rasterization converts vector data into pixels on the screen. It determines which pixels are covered by each primitive.",
+        fragment: "Fragment Processing calculates the final color of each pixel. This includes texturing, lighting, shadows, reflections, and other visual effects.",
+        output: "Output Merging combines the fragment data with the frame buffer. It handles depth testing, stencil operations, and blending."
+    };
+
     // Add event listeners for the controls
     if (document.getElementById('pipeline-controls')) {
         // Stage buttons
         const stageButtons = document.querySelectorAll('#pipeline-controls .stage-button');
         stageButtons.forEach(button => {
             button.addEventListener('click', function() {
+                // Clear active state from all buttons
+                stageButtons.forEach(btn => btn.style.background = 'rgba(255, 255, 255, 0.2)');
+                
+                // Set active state for clicked button
+                this.style.background = 'rgba(255, 255, 255, 0.5)';
+                
                 const stageName = this.id.replace('stage-', '');
+                console.log('Stage button clicked:', stageName);
+                
+                // Update description
+                const descriptionElement = document.getElementById('pipeline-stage-description');
+                if (descriptionElement) {
+                    descriptionElement.textContent = stageDescriptions[stageName] || 'No description available';
+                }
+                
+                // Call highlightStage to update the 3D model
                 highlightStage(stageName);
             });
         });
@@ -590,14 +644,40 @@ function createPipelineDemo(position, color) {
     
     // Function to highlight a specific stage
     function highlightStage(stageName) {
+        console.log('Highlighting stage:', stageName);
+        
+        // Highlight the selected stage and dim others
         stages.forEach(stage => {
             if (stageObjects[stage]) {
                 if (stage === stageName) {
-                    stageObjects[stage].material.emissiveIntensity = 0.8;
-                    stageObjects[stage].scale.set(1.3, 1.3, 1.3);
+                    // Make selected stage more prominent
+                    stageObjects[stage].material.emissiveIntensity = 1.0;
+                    stageObjects[stage].scale.set(1.5, 1.5, 1.5);
+                    stageObjects[stage].material.opacity = 1.0;
+                    
+                    // Add a pulsing animation to the selected stage
+                    const pulseAnimation = () => {
+                        const time = Date.now() * 0.001;
+                        const pulse = 0.8 + Math.sin(time * 3) * 0.2;
+                        stageObjects[stage].scale.set(pulse * 1.5, pulse * 1.5, pulse * 1.5);
+                        requestAnimationFrame(pulseAnimation);
+                    };
+                    
+                    // Store the current animation frame ID
+                    if (!stageObjects[stage].animationFrameId) {
+                        stageObjects[stage].animationFrameId = requestAnimationFrame(pulseAnimation);
+                    }
                 } else {
+                    // Reset non-selected stages
                     stageObjects[stage].material.emissiveIntensity = 0.2;
                     stageObjects[stage].scale.set(1, 1, 1);
+                    stageObjects[stage].material.opacity = 0.7;
+                    
+                    // Cancel any existing animation
+                    if (stageObjects[stage].animationFrameId) {
+                        cancelAnimationFrame(stageObjects[stage].animationFrameId);
+                        stageObjects[stage].animationFrameId = null;
+                    }
                 }
             }
         });
@@ -606,21 +686,33 @@ function createPipelineDemo(position, color) {
         if (stageName === 'vertex') {
             pipelineModelMaterial.wireframe = true;
             pipelineModelMaterial.emissiveIntensity = 0.3;
+            // Position model at this stage
+            pipelineModel.position.x = (stages.indexOf('vertex') - 2.5) * stageSpacing;
         } else if (stageName === 'tessellation') {
             pipelineModelMaterial.wireframe = true;
             pipelineModelMaterial.emissiveIntensity = 0.5;
+            // Position model at this stage
+            pipelineModel.position.x = (stages.indexOf('tessellation') - 2.5) * stageSpacing;
         } else if (stageName === 'geometry') {
             pipelineModelMaterial.wireframe = true;
             pipelineModelMaterial.emissiveIntensity = 0.7;
+            // Position model at this stage
+            pipelineModel.position.x = (stages.indexOf('geometry') - 2.5) * stageSpacing;
         } else if (stageName === 'rasterization') {
             pipelineModelMaterial.wireframe = false;
             pipelineModelMaterial.emissiveIntensity = 0.3;
+            // Position model at this stage
+            pipelineModel.position.x = (stages.indexOf('rasterization') - 2.5) * stageSpacing;
         } else if (stageName === 'fragment') {
             pipelineModelMaterial.wireframe = false;
             pipelineModelMaterial.emissiveIntensity = 0.5;
+            // Position model at this stage
+            pipelineModel.position.x = (stages.indexOf('fragment') - 2.5) * stageSpacing;
         } else if (stageName === 'output') {
             pipelineModelMaterial.wireframe = false;
             pipelineModelMaterial.emissiveIntensity = 0.8;
+            // Position model at this stage
+            pipelineModel.position.x = (stages.indexOf('output') - 2.5) * stageSpacing;
         }
     }
     
@@ -708,11 +800,11 @@ function createLightingDemo(position, color) {
         <div class="control-group">
             <h4>Light Color</h4>
             <div class="button-group" style="display: flex; flex-wrap: wrap; gap: 5px;">
-                <button data-color="#FFFFFF" class="color-button" style="background-color: #FFFFFF; flex: 1; min-width: 80px;">Sunshine</button>
-                <button data-color="#FF9800" class="color-button" style="background-color: #FF9800; flex: 1; min-width: 80px;">Orange Glow</button>
-                <button data-color="#2196F3" class="color-button" style="background-color: #2196F3; flex: 1; min-width: 80px;">Blueberry</button>
+                <button data-color="#FFFFFF" class="color-button" style="background-color: #FFFFFF; flex: 1; min-width: 80px; color: #000000; border: 2px solid #666666;">White</button>
+                <button data-color="#FF9800" class="color-button" style="background-color: #FF9800; flex: 1; min-width: 80px;">Orange</button>
+                <button data-color="#2196F3" class="color-button" style="background-color: #2196F3; flex: 1; min-width: 80px;">Blue</button>
                 <button data-color="#E91E63" class="color-button" style="background-color: #E91E63; flex: 1; min-width: 80px;">Pink</button>
-                <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50; flex: 1; min-width: 80px;">Mint</button>
+                <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50; flex: 1; min-width: 80px;">Green</button>
             </div>
         </div>
         <div class="control-group">
@@ -1114,12 +1206,18 @@ function createGeometryDemo(position, color) {
         <h3>Geometry Controls</h3>
         <div class="control-group">
             <h4>Geometry Type</h4>
-            <div class="button-group">
-                <button id="geom-box" class="geom-button">Box</button>
-                <button id="geom-sphere" class="geom-button">Sphere</button>
-                <button id="geom-torus" class="geom-button">Torus</button>
-                <button id="geom-cone" class="geom-button">Cone</button>
-                <button id="geom-cylinder" class="geom-button">Cylinder</button>
+            <div class="button-group" style="display: flex; flex-wrap: wrap; gap: 5px;">
+                <button id="geom-box" class="geom-button" style="flex: 1; min-width: 80px;">Box</button>
+                <button id="geom-sphere" class="geom-button" style="flex: 1; min-width: 80px;">Sphere</button>
+                <button id="geom-torus" class="geom-button" style="flex: 1; min-width: 80px;">Torus</button>
+                <button id="geom-cone" class="geom-button" style="flex: 1; min-width: 80px;">Cone</button>
+                <button id="geom-cylinder" class="geom-button" style="flex: 1; min-width: 80px;">Cylinder</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Geometry Description</h4>
+            <div id="geometry-description" style="background: rgba(0, 0, 0, 0.3); padding: 10px; border-radius: 5px; min-height: 80px;">
+                Select a geometry type to see its description
             </div>
         </div>
         <div class="control-group">
@@ -1140,13 +1238,37 @@ function createGeometryDemo(position, color) {
     `;
     document.body.appendChild(controlPanel);
     
+    // Define geometry descriptions
+    const geometryDescriptions = {
+        box: "Box (Cube) geometry is defined by width, height, and depth parameters. It's constructed from 6 faces, 8 vertices, and 12 triangles. Commonly used for buildings, containers, and architectural elements.",
+        sphere: "Sphere geometry is defined by radius and detail level parameters. Higher segment counts create smoother spheres at the cost of performance. Ideal for planets, balls, and rounded objects.",
+        torus: "Torus (Donut) geometry is created from two radii: the tube radius and the distance from the center to the tube. Common in mathematical visualization and decorative elements.",
+        cone: "Cone geometry consists of a circular base that tapers to a point. Defined by radius and height parameters. Used for mountains, funnels, and directional indicators.",
+        cylinder: "Cylinder geometry has consistent radius along its height. Defined by top radius, bottom radius, and height. Often used for pillars, tubes, and cylindrical containers."
+    };
+
     // Add event listeners for the controls
     if (document.getElementById('geometry-controls')) {
         // Geometry type buttons
         const geomButtons = document.querySelectorAll('#geometry-controls .geom-button');
         geomButtons.forEach(button => {
             button.addEventListener('click', function() {
+                // Clear active state from all buttons
+                geomButtons.forEach(btn => btn.style.background = 'rgba(255, 255, 255, 0.2)');
+                
+                // Set active state for clicked button
+                this.style.background = 'rgba(255, 255, 255, 0.5)';
+                
                 const geomType = this.id.replace('geom-', '');
+                console.log('Geometry type selected:', geomType);
+                
+                // Update the description
+                const descriptionElement = document.getElementById('geometry-description');
+                if (descriptionElement) {
+                    descriptionElement.textContent = geometryDescriptions[geomType] || 'No description available';
+                }
+                
+                // Change the geometry type
                 changeGeometry(geomType);
             });
         });

@@ -146,22 +146,45 @@ document.addEventListener('DOMContentLoaded', function() {
     infoPanel.id = 'info-panel';
     document.body.appendChild(infoPanel);
     
+    // Create the main UI panel content
+    const uiPanel = document.getElementById('ui-panel');
+    if (uiPanel) {
+        uiPanel.innerHTML = `
+            <h1>UTD Graphics Learning Studio</h1>
+            <div id="main-content">
+                <p>Welcome to the Computer Graphics Learning Studio! This interactive 3D environment helps you understand fundamental concepts in computer graphics.</p>
+                <p>Explore the world to discover learning stations about different topics.</p>
+                
+                <div class="control-group">
+                    <h2>Current Topic: <span id="current-topic">Explore</span></h2>
+                    <div id="topic-description">
+                        <p>Move around the 3D world to discover learning stations about computer graphics concepts.</p>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h2>Controls</h2>
+                    <p>• Move: WASD or Arrow Keys</p>
+                    <p>• Look: Mouse</p>
+                    <p>• Jump: Space</p>
+                    <p>• Exit: ESC</p>
+                    <p>• Toggle Info: Tab key or 'i' button</p>
+                </div>
+                
+                <div class="control-group team-info" style="text-align: center; margin-top: 30px;">
+                    <p style="font-size: 0.9em; color: #9EA2A2;">Developed by Team 3</p>
+                    <p style="font-size: 0.9em; color: #9EA2A2;">CS 4361 - Computer Graphics</p>
+                    <p style="font-size: 0.9em; color: #9EA2A2;">University of Texas at Dallas</p>
+                </div>
+            </div>
+        `;
+    }
+    
     // Add event listener for UI toggle
     uiToggle.addEventListener('click', function() {
         const uiPanel = document.getElementById('ui-panel');
         uiPanel.classList.toggle('visible');
     });
-    
-    // Add keyboard shortcut for UI toggle (Tab key) - Removed redundant listener, handled in firstPersonControls.js
-    /*
-    document.addEventListener('keydown', function(event) {
-        if (event.code === 'Tab') {
-            event.preventDefault(); // Prevent default tab behavior
-            const uiPanel = document.getElementById('ui-panel');
-            uiPanel.classList.toggle('visible');
-        }
-    });
-    */
 });
 
 /**
