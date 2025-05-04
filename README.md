@@ -17,10 +17,13 @@ An interactive web-based application for learning computer graphics concepts. Th
 
 ### Setup
 1. Clone this repository
-2. Open index.html in a modern web browser
+2. Open index.html in a modern web browser or run "python -m http.server"
 3. No build process required as we're using CDN for dependencies
 
 ### Team Members
-- [Team Member 1]
-- [Team Member 2]
-- [Team Member 3]
+- Evan Ngo
+- Ibrahim Khan
+- Jason Dang
+- Shawn Francis
+- Andrei Favorito
+
