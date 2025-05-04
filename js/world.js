@@ -1,17 +1,24 @@
 /**
- * 3D World environment for the Graphics Learning Studio
- * This file handles the creation and management of the 3D world that users navigate through
+ * 3d world for graphics learning studio
+ * handles terrain, stations, and interactive elements
  */
 
-// World objects and settings
+//=============================================================================
+// GLOBAL VARIABLES AND CONSTANTS
+//=============================================================================
+
+// world objects
 let terrain, skybox;
 let learningStations = {};
 let currentStation = null;
 
-// Textures
-let textures = {};
+// Initialize station controls object
+const stationControls = {};
 
-// Descriptions for learning stations
+// External THREE.js objects we need access to
+let scene, camera, clock;
+
+// station descriptions
 const stationDescriptions = {
     pipeline: "The graphics pipeline is the sequence of steps used to create a 2D representation of a 3D scene. Major stages include vertex processing, primitive assembly, rasterization, and fragment processing.",
     lighting: "Lighting models simulate how light interacts with surfaces. Key concepts include ambient light, diffuse reflection, and specular reflection, as well as shadows and global illumination techniques.\n\nAmbient lighting simulates indirect light scattered throughout a scene, ensuring objects are never completely dark. It represents the effect of light bouncing off multiple surfaces, so even areas not directly lit by a light source remain visible.\n\nDiffuse reflection occurs when light hits a rough surface and is scattered equally in all directions. This gives objects their basic color and soft shading, and is characteristic of matte or non-shiny surfaces, often called Lambertian reflectors.\n\nSpecular reflection happens when light reflects off a smooth surface in a specific direction, creating a bright, concentrated highlight. The size and sharpness of this highlight depend on how smooth or shiny the material is-glossy surfaces produce small, sharp highlights, while duller surfaces create larger, softer ones.",
@@ -21,24 +28,112 @@ const stationDescriptions = {
 };
 
 /**
- * Creates the 3D world environment
+ * Initialize the world with scene and camera references
+ */
+function initWorld(sceneRef, cameraRef) {
+    scene = sceneRef;
+    camera = cameraRef;
+    clock = new THREE.Clock();
+    
+    // Create the world
+    createWorld();
+}
+
+//=============================================================================
+// MAIN WORLD FUNCTIONS
+//=============================================================================
+
+/**
+ * create main world environment
  */
 function createWorld() {
-    // Create skybox
+    // make skybox
     createSkybox();
     
-    // Create terrain
+    // setup ground
     createTerrain();
     
-    // Create learning stations
+    // add learning stations
     createLearningStations();
     
-    // Add decorative elements
+    // add trees and decorations
     addWorldDecorations();
 
-    // Add world border walls
+    // add world boundaries
     createWorldBorder();
 }
+
+/**
+ * update world animations
+ */
+function updateWorld(time) {
+    const delta = clock.getDelta();
+
+    // update all learning station demos
+    for (const stationKey in learningStations) {
+        const station = learningStations[stationKey];
+        if (station.demoObject && station.demoObject.update && station.demoObject.visible) {
+            station.demoObject.update(time, delta);
+        }
+    }
+}
+
+/**
+ * check if player is near stations
+ */
+function checkStationProximity() {
+    try {
+        // get player position
+        const playerPosition = camera.position;
+        
+        // check distance to each station
+        let nearestStation = null;
+        let nearestDistance = 5; // activation radius
+        
+        for (const stationKey in learningStations) {
+            const station = learningStations[stationKey];
+            const distance = playerPosition.distanceTo(station.position);
+            
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestStation = station;
+            }
+        }
+        
+        // activate nearest station, deactivate others
+        if (nearestStation !== currentStation) {
+            // deactivate current station
+            if (currentStation) {
+                currentStation.deactivate();
+            }
+            
+            // activate new station
+            if (nearestStation) {
+                nearestStation.activate();
+            } else {
+                // no station nearby, reset UI
+                const currentTopicElement = document.getElementById('current-topic');
+                if (currentTopicElement) {
+                    currentTopicElement.textContent = 'Explore';
+                }
+                
+                const topicDescriptionElement = document.getElementById('topic-description');
+                if (topicDescriptionElement) {
+                    topicDescriptionElement.innerHTML = 
+                        '<p>Move around the 3D world to discover learning stations about computer graphics concepts.</p>';
+                }
+                
+                currentStation = null;
+            }
+        }
+    } catch (error) {
+        console.error('proximity check error:', error);
+    }
+}
+
+//=============================================================================
+// ENVIRONMENT CREATION
+//=============================================================================
 
 /**
  * Creates a skybox for the 3D world
@@ -271,6 +366,11 @@ function createStation(name, position, color) {
                 this.demoObject.init();
             }
             
+            // Set up interactive controls if the demo supports it
+            if (this.demoObject.setupControls) {
+                this.demoObject.setupControls();
+            }
+            
             // Set as current station
             currentStation = this;
         },
@@ -282,603 +382,915 @@ function createStation(name, position, color) {
             
             // Hide demo object
             this.demoObject.visible = false;
+            
+            // Remove interactive controls if the demo supports it
+            if (this.demoObject.removeControls) {
+                this.demoObject.removeControls();
+            }
         }
     };
 }
 
+//=============================================================================
+// DEMO OBJECTS FOR STATIONS
+//=============================================================================
+
 /**
- * Creates a demo object specific to each learning station
- * @param {string} stationType - The type of station
- * @param {THREE.Vector3} position - The position in the 3D world
- * @param {number} color - The color of the demo object
- * @returns {THREE.Object3D} - The demo object
+ * Creates a demo object based on station type
  */
 function createStationDemoObject(stationType, position, color) {
-    let demoObject;
+    let demoObject = null;
     
-    switch(stationType.toLowerCase()) {
+    switch(stationType) {
         case 'pipeline':
-            // Create a pipeline visualization
             demoObject = createPipelineDemo(position, color);
             break;
-            
         case 'lighting':
-            // Create a lighting demonstration
             demoObject = createLightingDemo(position, color);
             break;
-            
         case 'texturing':
-            // Create a texturing demonstration
             demoObject = createTexturingDemo(position, color);
             break;
-            
         case 'geometry':
-            // Create a geometry demonstration
             demoObject = createGeometryDemo(position, color);
             break;
-            
         case 'shaders':
-            // Create a shader demonstration
             demoObject = createShaderDemo(position, color);
             break;
-            
         default:
-            // Default demo object is a spinning cube
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshStandardMaterial({
-                color: color,
-                metalness: 0.7,
-                roughness: 0.3
-            });
-            demoObject = new THREE.Mesh(geometry, material);
+            console.error('Unknown station type:', stationType);
     }
     
-    // Position the demo object above the platform
-    demoObject.position.copy(position);
-    demoObject.position.y = 2;
-    demoObject.visible = false; // Initially hidden
-    scene.add(demoObject);
+    if (demoObject) {
+        demoObject.visible = false; // Hidden by default
+        scene.add(demoObject);
+    }
     
     return demoObject;
 }
 
 /**
- * Creates a pipeline visualization demo
+ * Creates the pipeline demo object
  */
 function createPipelineDemo(position, color) {
-    // Create a group to hold all pipeline elements
-    const pipelineGroup = new THREE.Group();
-    pipelineGroup.position.copy(position);
-    pipelineGroup.position.y = 1.5;
+    // Create a group to hold all pipeline demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Pipeline stages parameters
-    const stageCount = 5;
-    const stageSpacing = 1.2;
-    const startX = -(stageCount - 1) / 2 * stageSpacing;
-    const endX = (stageCount - 1) / 2 * stageSpacing;
+    // Create a simplistic representation of the pipeline
+    const stages = [
+        { name: "Vertex Processing", color: 0x4CAF50 },
+        { name: "Primitive Assembly", color: 0x8BC34A },
+        { name: "Rasterization", color: 0xCDDC39 },
+        { name: "Fragment Processing", color: 0xFFEB3B },
+        { name: "Output Merger", color: 0xFFC107 }
+    ];
     
-    // Create pipeline stages as connected boxes
-    const stageGeometry = new THREE.BoxGeometry(1, 0.5, 0.5);
-    const stageMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: 0.5,
-        roughness: 0.5
+    const stageSpacing = 1.0;
+    const stageSize = 0.5;
+    
+    // Create a model that will move through the pipeline
+    const modelGeometry = new THREE.TetrahedronGeometry(0.3);
+    const modelMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.5,
+        metalness: 0.5
     });
+    const model = new THREE.Mesh(modelGeometry, modelMaterial);
+    model.position.set(-stageSpacing * 3, 0, 0);
+    group.add(model);
     
-    for (let i = 0; i < stageCount; i++) {
-        const stage = new THREE.Mesh(stageGeometry, stageMaterial.clone());
-        stage.position.x = (i - (stageCount - 1) / 2) * stageSpacing;
-        pipelineGroup.add(stage);
+    // Create visual representations of each pipeline stage
+    for (let i = 0; i < stages.length; i++) {
+        const stage = stages[i];
         
-        // Add connecting "pipes" between stages
-        if (i < stageCount - 1) {
-            const pipeGeometry = new THREE.CylinderGeometry(0.1, 0.1, stageSpacing - 0.2, 8);
-            const pipeMaterial = new THREE.MeshStandardMaterial({
-                color: 0x888888,
-                metalness: 0.8,
-                roughness: 0.2
+        // Create stage node
+        const nodeGeometry = new THREE.BoxGeometry(stageSize, stageSize, stageSize);
+        const nodeMaterial = new THREE.MeshStandardMaterial({
+            color: stage.color,
+            roughness: 0.7,
+            metalness: 0.3
+        });
+        const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+        node.position.x = -stageSpacing * 2 + i * stageSpacing;
+        group.add(node);
+        
+        // Create connection to next stage
+        if (i < stages.length - 1) {
+            const connectionGeometry = new THREE.CylinderGeometry(0.05, 0.05, stageSpacing, 8);
+            const connectionMaterial = new THREE.MeshStandardMaterial({
+                color: 0xBDBDBD
             });
-            
-            const pipe = new THREE.Mesh(pipeGeometry, pipeMaterial);
-            pipe.rotation.z = Math.PI / 2;
-            pipe.position.x = (i - (stageCount - 1) / 2) * stageSpacing + stageSpacing / 2;
-            pipelineGroup.add(pipe);
+            const connection = new THREE.Mesh(connectionGeometry, connectionMaterial);
+            connection.position.x = -stageSpacing * 2 + i * stageSpacing + stageSpacing / 2;
+            connection.rotation.z = Math.PI / 2;
+            group.add(connection);
         }
     }
-
-    // Create a "packet" to animate through the pipeline
-    const packetGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-    const packetMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-    const packet = new THREE.Mesh(packetGeometry, packetMaterial);
-    packet.position.set(startX, 0, 0); // Start at the beginning
-    pipelineGroup.add(packet);
-
-    // Store necessary variables for animation
-    pipelineGroup.packet = packet;
-    pipelineGroup.startX = startX;
-    pipelineGroup.endX = endX;
-    pipelineGroup.animationProgress = 0;
-    pipelineGroup.animationDuration = 5; // seconds to travel pipeline
-
-    // Add an init function to reset the animation
-    pipelineGroup.init = function() {
-        this.packet.position.x = this.startX;
-        this.animationProgress = 0;
-    };
-
-    // Add animation function to the group
-    pipelineGroup.update = function(time, delta) { // Pass delta time
-        if (!this.visible) return; // Don't update if not visible
-
-        this.animationProgress += delta;
-        if (this.animationProgress > this.animationDuration) {
-            this.animationProgress = 0; // Loop animation
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Move the model through the pipeline
+        model.position.x = -stageSpacing * 3 + ((time * 0.5) % (stageSpacing * 6));
+        
+        // Reset position after completing the pipeline
+        if (model.position.x > stageSpacing * 3) {
+            model.position.x = -stageSpacing * 3;
         }
-
-        const progressRatio = this.animationProgress / this.animationDuration;
-        this.packet.position.x = this.startX + (this.endX - this.startX) * progressRatio;
+        
+        // Rotate model as it moves
+        model.rotation.x += delta * 2;
+        model.rotation.y += delta * 3;
     };
     
-    return pipelineGroup;
+    return group;
 }
 
 /**
- * Creates a lighting demonstration
+ * Creates the lighting demo object
  */
 function createLightingDemo(position, color) {
-    // Create a group for the lighting demo
-    const lightingGroup = new THREE.Group();
-    lightingGroup.position.copy(position);
-    lightingGroup.position.y = 1.5;
+    // Create a group to hold all lighting demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Create a sphere to demonstrate lighting
-    const sphereGeometry = new THREE.SphereGeometry(0.7, 32, 32);
+    // Create a demo object to showcase lighting
+    const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
     const sphereMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        metalness: 0.1,
-        roughness: 0.2
+        color: 0xFFFFFF,
+        roughness: 0.5,
+        metalness: 0.2
     });
-    
     const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    lightingGroup.add(sphere);
+    group.add(sphere);
     
-    // Add a point light that orbits the sphere
-    const demoLight = new THREE.PointLight(color, 1, 10);
-    demoLight.position.set(1.5, 0, 0);
-    lightingGroup.add(demoLight);
+    // Create a point light for the demo
+    const pointLight = new THREE.PointLight(0xFFFFFF, 1, 10);
+    pointLight.position.set(2, 2, 2);
+    group.add(pointLight);
     
-    // Add a small sphere to represent the light
+    // Create a visual representation of the light
     const lightSphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
     const lightSphereMaterial = new THREE.MeshBasicMaterial({
-        color: color,
-        emissive: color,
-        emissiveIntensity: 1
+        color: 0xFFFFFF
     });
-    
     const lightSphere = new THREE.Mesh(lightSphereGeometry, lightSphereMaterial);
-    lightSphere.position.copy(demoLight.position);
-    lightingGroup.add(lightSphere);
+    lightSphere.position.copy(pointLight.position);
+    group.add(lightSphere);
     
-    // Add animation function to the group
-    lightingGroup.update = function(time) {
-        // Orbit the light around the sphere
-        demoLight.position.x = Math.sin(time * 2) * 1.5;
-        demoLight.position.z = Math.cos(time * 2) * 1.5;
-        lightSphere.position.copy(demoLight.position);
-    };
+    // Add control panel
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'lighting-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Lighting Controls</h3>
+        <div class="control-group">
+            <h4>Light Color</h4>
+            <div class="button-group">
+                <button data-color="#FFFFFF" class="color-button" style="background-color: #FFFFFF;">Sunshine</button>
+                <button data-color="#FF9800" class="color-button" style="background-color: #FF9800;">Orange Glow</button>
+                <button data-color="#2196F3" class="color-button" style="background-color: #2196F3;">Blueberry</button>
+                <button data-color="#E91E63" class="color-button" style="background-color: #E91E63;">Pink</button>
+                <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;">Mint</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Light Brightness</h4>
+            <input type="range" min="0" max="2" step="0.1" value="1" id="brightness-slider">
+        </div>
+        <div class="control-group">
+            <h4>Material Properties</h4>
+            <div class="slider-group">
+                <label>Shininess</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.5" id="shininess-slider">
+            </div>
+            <div class="slider-group">
+                <label>Metalness</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.2" id="metalness-slider">
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
     
-    return lightingGroup;
-}
-
-/**
- * Creates a texturing demonstration
- */
-function createTexturingDemo(position, color) {
-    // Create a group for the texturing demo
-    const texturingGroup = new THREE.Group();
-    texturingGroup.position.copy(position);
-    texturingGroup.position.y = 1.5;
-    
-    // Default cube material (fallback)
-    const cubeMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: 0.1,
-        roughness: 0.8
-    });
-    
-    // Try to load a texture
-    try {
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.setPath('assets/textures/');
+    // Add event listeners for the controls
+    if (document.getElementById('lighting-controls')) {
+        // Color buttons
+        const colorButtons = document.querySelectorAll('#lighting-controls .color-button');
+        colorButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const colorValue = this.getAttribute('data-color');
+                pointLight.color.set(colorValue);
+                lightSphere.material.color.set(colorValue);
+            });
+        });
         
-        // Placeholder for actual textures
-        // In a real implementation, you would have these files
-        textureLoader.load('demo_texture.jpg',
-            // Success callback
-            function(texture) {
-                cubeMaterial.map = texture;
-                cubeMaterial.needsUpdate = true;
-            },
-            // Progress callback
-            undefined,
-            // Error callback
-            function(err) {
-                console.log('Error loading demo texture, using fallback color');
-            }
-        );
-    } catch (error) {
-        console.log('Error loading texture, using fallback color');
+        // Brightness slider
+        const brightnessSlider = document.getElementById('brightness-slider');
+        brightnessSlider.addEventListener('input', function() {
+            pointLight.intensity = parseFloat(this.value);
+        });
+        
+        // Material property sliders
+        const shininessSlider = document.getElementById('shininess-slider');
+        shininessSlider.addEventListener('input', function() {
+            const roughness = 1 - parseFloat(this.value);
+            sphereMaterial.roughness = roughness;
+            sphereMaterial.needsUpdate = true;
+        });
+        
+        const metalnessSlider = document.getElementById('metalness-slider');
+        metalnessSlider.addEventListener('input', function() {
+            sphereMaterial.metalness = parseFloat(this.value);
+            sphereMaterial.needsUpdate = true;
+        });
     }
     
-    // Create a cube with the texture or fallback material
-    const cubeGeometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    texturingGroup.add(cube);
-    
-    // Add animation function to the group
-    texturingGroup.update = function(time) {
-        // Rotate the cube to show all sides
-        cube.rotation.y = time * 0.5;
-        cube.rotation.x = Math.sin(time) * 0.2;
+    // Store controls reference for show/hide
+    stationControls.lighting = {
+        show: function() {
+            const controls = document.getElementById('lighting-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('lighting-controls');
+            if (controls) controls.style.display = 'none';
+        }
     };
     
-    return texturingGroup;
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Rotate light around sphere
+        const angle = time * 0.5;
+        const radius = 2;
+        const height = Math.sin(time * 0.3) + 2;
+        
+        pointLight.position.x = Math.cos(angle) * radius;
+        pointLight.position.y = height;
+        pointLight.position.z = Math.sin(angle) * radius;
+        
+        lightSphere.position.copy(pointLight.position);
+    };
+    
+    return group;
 }
 
 /**
- * Creates a geometry demonstration
+ * Creates the texturing demo object
+ */
+function createTexturingDemo(position, color) {
+    // Create a group to hold all texturing demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
+    
+    // Create a cube to showcase texturing
+    const cubeGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+    const cubeMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        roughness: 0.7,
+        metalness: 0.2
+    });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    group.add(cube);
+    
+    // Setup texture parameters
+    let currentTexture = 'bricks';
+    let textureRepeat = 1;
+    let textureRotation = 0;
+    
+    // Generate procedural textures
+    const textureSize = 512;
+    const generateProceduralTexture = (type) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = textureSize;
+        canvas.height = textureSize;
+        const ctx = canvas.getContext('2d');
+        
+        // Clear canvas with white
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, textureSize, textureSize);
+        
+        switch (type) {
+            case 'bricks':
+                // Draw brick pattern
+                const brickWidth = 60;
+                const brickHeight = 30;
+                const mortarSize = 5;
+                
+                ctx.fillStyle = '#A52A2A';
+                
+                for (let y = 0; y < textureSize; y += brickHeight + mortarSize) {
+                    // Alternate brick rows
+                    const offset = (Math.floor(y / (brickHeight + mortarSize)) % 2) * (brickWidth / 2);
+                    
+                    for (let x = -offset; x < textureSize; x += brickWidth + mortarSize) {
+                        ctx.fillRect(x, y, brickWidth, brickHeight);
+                    }
+                }
+                break;
+                
+            case 'wood':
+                // Draw wood grain pattern
+                const baseColor = '#8B4513';
+                ctx.fillStyle = baseColor;
+                ctx.fillRect(0, 0, textureSize, textureSize);
+                
+                // Add wood grain
+                ctx.strokeStyle = '#603311';
+                ctx.lineWidth = 1;
+                
+                for (let i = 0; i < 100; i++) {
+                    const x = Math.random() * textureSize;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    
+                    // Create wavy line
+                    for (let y = 0; y < textureSize; y += 10) {
+                        const xOffset = x + Math.sin(y * 0.05) * 5 + Math.random() * 3;
+                        ctx.lineTo(xOffset, y);
+                    }
+                    
+                    ctx.stroke();
+                }
+                break;
+                
+            case 'stone':
+                // Draw stone pattern
+                ctx.fillStyle = '#888888';
+                ctx.fillRect(0, 0, textureSize, textureSize);
+                
+                // Add stone pattern
+                for (let i = 0; i < 50; i++) {
+                    const size = 20 + Math.random() * 40;
+                    const x = Math.random() * textureSize;
+                    const y = Math.random() * textureSize;
+                    const shade = 100 + Math.floor(Math.random() * 100);
+                    
+                    ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                // Add cracks
+                ctx.strokeStyle = '#555555';
+                ctx.lineWidth = 1;
+                
+                for (let i = 0; i < 20; i++) {
+                    const x = Math.random() * textureSize;
+                    const y = Math.random() * textureSize;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    
+                    // Create random crack
+                    let currentX = x;
+                    let currentY = y;
+                    const segments = 5 + Math.floor(Math.random() * 5);
+                    
+                    for (let j = 0; j < segments; j++) {
+                        currentX += (Math.random() - 0.5) * 40;
+                        currentY += (Math.random() - 0.5) * 40;
+                        ctx.lineTo(currentX, currentY);
+                    }
+                    
+                    ctx.stroke();
+                }
+                break;
+                
+            case 'checkerboard':
+                // Draw checkerboard pattern
+                const squareSize = 64;
+                
+                for (let y = 0; y < textureSize; y += squareSize) {
+                    for (let x = 0; x < textureSize; x += squareSize) {
+                        const isEven = (Math.floor(x / squareSize) + Math.floor(y / squareSize)) % 2 === 0;
+                        ctx.fillStyle = isEven ? '#000000' : '#FFFFFF';
+                        ctx.fillRect(x, y, squareSize, squareSize);
+                    }
+                }
+                break;
+                
+            case 'dots':
+                // Draw dot pattern
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, textureSize, textureSize);
+                
+                const dotSize = 10;
+                const spacing = 40;
+                
+                ctx.fillStyle = '#000000';
+                
+                for (let y = spacing / 2; y < textureSize; y += spacing) {
+                    for (let x = spacing / 2; x < textureSize; x += spacing) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                break;
+                
+            default:
+                // Default pattern
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, textureSize, textureSize);
+        }
+        
+        return new THREE.CanvasTexture(canvas);
+    };
+    
+    // Apply texture to the cube
+    const applyTexture = (textureType) => {
+        currentTexture = textureType;
+        
+        const texture = generateProceduralTexture(textureType);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(textureRepeat, textureRepeat);
+        texture.rotation = textureRotation;
+        
+        cubeMaterial.map = texture;
+        cubeMaterial.needsUpdate = true;
+    };
+    
+    // Initially apply brick texture
+    applyTexture('bricks');
+    
+    // Add texture control panel
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'texturing-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Texture Controls</h3>
+        <div class="control-group">
+            <h4>Texture Type</h4>
+            <div class="button-group">
+                <button data-texture="bricks" class="texture-button">Bricks</button>
+                <button data-texture="wood" class="texture-button">Wood</button>
+                <button data-texture="stone" class="texture-button">Stone</button>
+                <button data-texture="checkerboard" class="texture-button">Checkers</button>
+                <button data-texture="dots" class="texture-button">Dots</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Texture Repeat</h4>
+            <input type="range" min="0.5" max="5" step="0.5" value="1" id="repeat-slider">
+        </div>
+        <div class="control-group">
+            <h4>Texture Rotation</h4>
+            <div class="button-group">
+                <button id="rotate-left">⟲ Rotate Left</button>
+                <button id="rotate-right">⟳ Rotate Right</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('texturing-controls')) {
+        // Texture type buttons
+        const textureButtons = document.querySelectorAll('#texturing-controls .texture-button');
+        textureButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const textureType = this.getAttribute('data-texture');
+                applyTexture(textureType);
+            });
+        });
+        
+        // Repeat slider
+        const repeatSlider = document.getElementById('repeat-slider');
+        repeatSlider.addEventListener('input', function() {
+            textureRepeat = parseFloat(this.value);
+            if (cubeMaterial.map) {
+                cubeMaterial.map.repeat.set(textureRepeat, textureRepeat);
+                cubeMaterial.needsUpdate = true;
+            }
+        });
+        
+        // Rotation buttons
+        const rotateLeftButton = document.getElementById('rotate-left');
+        rotateLeftButton.addEventListener('click', function() {
+            textureRotation -= Math.PI / 6;
+            if (cubeMaterial.map) {
+                cubeMaterial.map.rotation = textureRotation;
+                cubeMaterial.needsUpdate = true;
+            }
+        });
+        
+        const rotateRightButton = document.getElementById('rotate-right');
+        rotateRightButton.addEventListener('click', function() {
+            textureRotation += Math.PI / 6;
+            if (cubeMaterial.map) {
+                cubeMaterial.map.rotation = textureRotation;
+                cubeMaterial.needsUpdate = true;
+            }
+        });
+    }
+    
+    // Store controls reference for show/hide
+    stationControls.texturing = {
+        show: function() {
+            const controls = document.getElementById('texturing-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('texturing-controls');
+            if (controls) controls.style.display = 'none';
+        }
+    };
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Rotate cube slowly
+        cube.rotation.y += delta * 0.2;
+    };
+    
+    return group;
+}
+
+/**
+ * Creates the geometry demo object
  */
 function createGeometryDemo(position, color) {
-    // Create a group for the geometry demo
-    const geometryGroup = new THREE.Group();
-    geometryGroup.position.copy(position);
-    geometryGroup.position.y = 1.5;
+    // Create a group to hold all geometry demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Create different geometric shapes
-    const shapes = [];
+    // Create an array of different geometries
+    const geometries = [
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.SphereGeometry(0.7, 16, 16),
+        new THREE.ConeGeometry(0.7, 1.5, 16),
+        new THREE.TorusGeometry(0.7, 0.3, 16, 32),
+        new THREE.TetrahedronGeometry(0.8),
+        new THREE.OctahedronGeometry(0.8)
+    ];
     
-    // Tetrahedron
-    const tetraGeometry = new THREE.TetrahedronGeometry(0.5);
-    const tetraMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff5252,
-        metalness: 0.2,
-        roughness: 0.5
-    });
-    const tetrahedron = new THREE.Mesh(tetraGeometry, tetraMaterial);
-    tetrahedron.position.set(-1, 0, 0);
-    shapes.push(tetrahedron);
-    geometryGroup.add(tetrahedron);
+    // Create materials for the geometries
+    const materials = [
+        new THREE.MeshStandardMaterial({ color: 0x4CAF50, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0x2196F3, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xFF9800, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0x9C27B0, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xF44336, roughness: 0.5 }),
+        new THREE.MeshStandardMaterial({ color: 0xFFEB3B, roughness: 0.5 })
+    ];
     
-    // Octahedron
-    const octaGeometry = new THREE.OctahedronGeometry(0.5);
-    const octaMaterial = new THREE.MeshStandardMaterial({
-        color: 0x4CAF50,
-        metalness: 0.2,
-        roughness: 0.5
-    });
-    const octahedron = new THREE.Mesh(octaGeometry, octaMaterial);
-    octahedron.position.set(0, 0, 0);
-    shapes.push(octahedron);
-    geometryGroup.add(octahedron);
+    // Create meshes for each geometry and position them in a circle
+    const meshes = [];
+    const radius = 2;
     
-    // Dodecahedron
-    const dodecaGeometry = new THREE.DodecahedronGeometry(0.5);
-    const dodecaMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2196F3,
-        metalness: 0.2,
-        roughness: 0.5
-    });
-    const dodecahedron = new THREE.Mesh(dodecaGeometry, dodecaMaterial);
-    dodecahedron.position.set(1, 0, 0);
-    shapes.push(dodecahedron);
-    geometryGroup.add(dodecahedron);
+    for (let i = 0; i < geometries.length; i++) {
+        const angle = (i / geometries.length) * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+        
+        const mesh = new THREE.Mesh(geometries[i], materials[i]);
+        mesh.position.set(x, 0, z);
+        
+        group.add(mesh);
+        meshes.push(mesh);
+    }
     
-    // Add animation function to the group
-    geometryGroup.update = function(time) {
-        // Rotate each shape differently
-        shapes.forEach((shape, index) => {
-            shape.rotation.x = time * (0.5 + index * 0.2);
-            shape.rotation.y = time * (0.3 + index * 0.1);
-        });
+    // Add a light to illuminate the geometries
+    const light = new THREE.PointLight(0xFFFFFF, 1, 10);
+    light.position.set(0, 2, 0);
+    group.add(light);
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Rotate each geometry differently
+        for (let i = 0; i < meshes.length; i++) {
+            meshes[i].rotation.x += delta * (0.5 + i * 0.1);
+            meshes[i].rotation.y += delta * (0.3 + i * 0.1);
+            
+            // Make geometries bob up and down
+            const bobHeight = Math.sin(time * (0.5 + i * 0.1)) * 0.2;
+            meshes[i].position.y = bobHeight;
+        }
+        
+        // Rotate the entire group slowly
+        group.rotation.y += delta * 0.1;
     };
     
-    return geometryGroup;
+    return group;
 }
 
 /**
- * Creates a shader demonstration
+ * Creates the shader demo object
  */
 function createShaderDemo(position, color) {
-    // Create a group for the shader demo
-    const shaderGroup = new THREE.Group();
-    shaderGroup.position.copy(position);
-    shaderGroup.position.y = 1.5;
+    // Create a group to hold all shader demo objects
+    const group = new THREE.Group();
+    group.position.copy(position);
+    group.position.y += 3; // Raise above platform
     
-    // Create a custom shader material
-    const customShaderMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            time: { value: 0.0 },
-            color: { value: new THREE.Color(color) }
-        },
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform float time;
-            uniform vec3 color;
-            varying vec2 vUv;
-            
-            void main() {
-                vec2 p = vUv * 2.0 - 1.0;
-                float r = length(p);
-                float a = atan(p.y, p.x);
-                
-                float f = sin(a * 8.0 + time * 2.0) * 0.5 + 0.5;
-                vec3 finalColor = mix(color, vec3(1.0), f * r);
-                
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `
-    });
-    
-    // Create a plane with the custom shader
-    const planeGeometry = new THREE.PlaneGeometry(2, 2, 32, 32);
-    const shaderPlane = new THREE.Mesh(planeGeometry, customShaderMaterial);
-    shaderGroup.add(shaderPlane);
-    
-    // Add animation function to the group
-    shaderGroup.update = function(time) {
-        // Update the shader time uniform
-        customShaderMaterial.uniforms.time.value = time;
+    // Create custom shader material
+    const vertexShader = `
+        varying vec2 vUv;
+        varying vec3 vPosition;
         
-        // Rotate the plane slowly
-        shaderPlane.rotation.z = time * 0.2;
+        void main() {
+            vUv = uv;
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+    
+    const fragmentShader = `
+        uniform float time;
+        uniform vec3 color1;
+        uniform vec3 color2;
+        uniform float waveFrequency;
+        uniform float waveAmplitude;
+        uniform float blendFactor;
+        
+        varying vec2 vUv;
+        varying vec3 vPosition;
+        
+        void main() {
+            // Create a wave pattern
+            float wave = sin(vUv.x * waveFrequency + time) * sin(vUv.y * waveFrequency + time) * waveAmplitude;
+            
+            // Mix colors based on wave pattern
+            vec3 mixedColor = mix(color1, color2, wave * blendFactor + 0.5);
+            
+            gl_FragColor = vec4(mixedColor, 1.0);
+        }
+    `;
+    
+    // Initial shader parameters
+    const shaderUniforms = {
+        time: { value: 0 },
+        color1: { value: new THREE.Color(0x2196F3) },
+        color2: { value: new THREE.Color(0xFF9800) },
+        waveFrequency: { value: 10.0 },
+        waveAmplitude: { value: 0.5 },
+        blendFactor: { value: 0.8 }
     };
     
-    return shaderGroup;
+    const shaderMaterial = new THREE.ShaderMaterial({
+        uniforms: shaderUniforms,
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+        side: THREE.DoubleSide
+    });
+    
+    // Create a plane to display the shader
+    const planeGeometry = new THREE.PlaneGeometry(2, 2, 32, 32);
+    const plane = new THREE.Mesh(planeGeometry, shaderMaterial);
+    group.add(plane);
+    
+    // Add shader control panel
+    const controlPanel = document.createElement('div');
+    controlPanel.id = 'shader-controls';
+    controlPanel.className = 'station-controls';
+    controlPanel.style.display = 'none';
+    controlPanel.innerHTML = `
+        <h3>Shader Controls</h3>
+        <div class="control-group">
+            <h4>Colors</h4>
+            <div class="color-control">
+                <label>Color 1</label>
+                <div class="button-group">
+                    <button data-color="#2196F3" class="color-button" style="background-color: #2196F3;"></button>
+                    <button data-color="#F44336" class="color-button" style="background-color: #F44336;"></button>
+                    <button data-color="#4CAF50" class="color-button" style="background-color: #4CAF50;"></button>
+                </div>
+            </div>
+            <div class="color-control">
+                <label>Color 2</label>
+                <div class="button-group">
+                    <button data-color="#FF9800" class="color-button" style="background-color: #FF9800;"></button>
+                    <button data-color="#9C27B0" class="color-button" style="background-color: #9C27B0;"></button>
+                    <button data-color="#FFEB3B" class="color-button" style="background-color: #FFEB3B;"></button>
+                </div>
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Wave Pattern</h4>
+            <div class="slider-group">
+                <label>Frequency</label>
+                <input type="range" min="1" max="30" step="1" value="10" id="frequency-slider">
+            </div>
+            <div class="slider-group">
+                <label>Amplitude</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.5" id="amplitude-slider">
+            </div>
+        </div>
+        <div class="control-group">
+            <h4>Blend Settings</h4>
+            <div class="slider-group">
+                <label>Blend Factor</label>
+                <input type="range" min="0" max="1" step="0.1" value="0.8" id="blend-slider">
+            </div>
+        </div>
+    `;
+    document.body.appendChild(controlPanel);
+    
+    // Add event listeners for the controls
+    if (document.getElementById('shader-controls')) {
+        // Color buttons for color 1
+        const color1Buttons = document.querySelectorAll('#shader-controls .color-control:nth-child(1) .color-button');
+        color1Buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                const colorValue = this.getAttribute('data-color');
+                shaderUniforms.color1.value.set(colorValue);
+            });
+        });
+        
+        // Color buttons for color 2
+        const color2Buttons = document.querySelectorAll('#shader-controls .color-control:nth-child(2) .color-button');
+        color2Buttons.forEach(button => {
+            button.addEventListener('click', function() {
+                const colorValue = this.getAttribute('data-color');
+                shaderUniforms.color2.value.set(colorValue);
+            });
+        });
+        
+        // Frequency slider
+        const frequencySlider = document.getElementById('frequency-slider');
+        frequencySlider.addEventListener('input', function() {
+            shaderUniforms.waveFrequency.value = parseFloat(this.value);
+        });
+        
+        // Amplitude slider
+        const amplitudeSlider = document.getElementById('amplitude-slider');
+        amplitudeSlider.addEventListener('input', function() {
+            shaderUniforms.waveAmplitude.value = parseFloat(this.value);
+        });
+        
+        // Blend factor slider
+        const blendSlider = document.getElementById('blend-slider');
+        blendSlider.addEventListener('input', function() {
+            shaderUniforms.blendFactor.value = parseFloat(this.value);
+        });
+    }
+    
+    // Store controls reference for show/hide
+    stationControls.shaders = {
+        show: function() {
+            const controls = document.getElementById('shader-controls');
+            if (controls) controls.style.display = 'block';
+        },
+        hide: function() {
+            const controls = document.getElementById('shader-controls');
+            if (controls) controls.style.display = 'none';
+        }
+    };
+    
+    // Add animation update function
+    group.update = function(time, delta) {
+        // Update shader time uniform
+        shaderUniforms.time.value = time;
+        
+        // Rotate plane slowly
+        plane.rotation.y += delta * 0.2;
+    };
+    
+    return group;
 }
 
 /**
  * Adds decorative elements to the world
  */
 function addWorldDecorations() {
-    // Add some trees
+    // Add trees around the world
     addTrees();
     
-    // Add a car model - Removed
-    // addCarModel();
-    
-    // Add some floating particles
+    // Add particle effects
     addParticles();
 }
 
 /**
- * Adds trees to the world
+ * Adds trees throughout the world for decoration
  */
 function addTrees() {
-    // Create a simple tree
-    function createTree(x, z) {
-        const treeGroup = new THREE.Group();
+    // Create trees at various positions
+    for (let i = 0; i < 20; i++) {
+        const x = (Math.random() - 0.5) * 80;
+        const z = (Math.random() - 0.5) * 80;
         
-        // Tree trunk - Larger
-        const trunkGeometry = new THREE.CylinderGeometry(0.4, 0.6, 3.0, 8); // Increased size
-        const trunkMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8B4513,
-            roughness: 0.9
-        });
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = 1.5; // Adjusted Y position for new height
-        treeGroup.add(trunk);
+        // Don't place trees too close to stations
+        let tooClose = false;
+        for (const stationKey in learningStations) {
+            const station = learningStations[stationKey];
+            const dx = station.position.x - x;
+            const dz = station.position.z - z;
+            const distSquared = dx*dx + dz*dz;
+            
+            if (distSquared < 100) { // 10 units radius
+                tooClose = true;
+                break;
+            }
+        }
         
-        // Tree foliage - Larger
-        const foliageGeometry = new THREE.ConeGeometry(2, 4, 8); // Increased size
-        const foliageMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2E8B57,
-            roughness: 0.8
-        });
-        const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
-        foliage.position.y = 5.0; // Adjusted Y position (trunk height + foliage height/2)
-        treeGroup.add(foliage);
-        
-        // Position the tree group base at terrain level (Y = -1 based on user's last change)
-        treeGroup.position.set(x, -1, z);
-        scene.add(treeGroup);
+        if (!tooClose) {
+            createTree(x, z);
+        }
     }
-    
-    // Add trees at various positions
-    const treePositions = [
-        [-20, -10], [25, -20], [-15, 25], [30, 15],
-        [-25, 5], [10, 30], [-30, -25], [20, -5]
-    ];
-    
-    treePositions.forEach(pos => {
-        createTree(pos[0], pos[1]);
-    });
 }
 
 /**
- * Adds a car model to the world - Entire function removed
+ * Creates a tree at the specified position
  */
-/*
-function addCarModel() {
-    // ... (car creation code) ...
-    return carGroup;
+function createTree(x, z) {
+    // Create trunk
+    const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 4, 8);
+    const trunkMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8B4513,
+        roughness: 0.9
+    });
+    const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+    trunk.position.set(x, 1, z);
+    trunk.castShadow = true;
+    scene.add(trunk);
+    
+    // Create foliage (leaves)
+    const foliageGeometry = new THREE.ConeGeometry(2, 5, 8);
+    const foliageMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2E8B57,
+        roughness: 0.8
+    });
+    const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
+    foliage.position.set(x, 4, z);
+    foliage.castShadow = true;
+    scene.add(foliage);
 }
-*/
 
 /**
- * Adds floating particles to the world
+ * Adds particle effects to the world
  */
 function addParticles() {
-    // Create a particle system
-    const particleCount = 500;
+    // Create particles for atmospheric effect
+    const particleCount = 1000;
     const particles = new THREE.BufferGeometry();
     
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     
-    // Create random positions and colors for particles
     for (let i = 0; i < particleCount; i++) {
-        // Position
-        positions[i * 3] = (Math.random() - 0.5) * 100; // x
-        positions[i * 3 + 1] = Math.random() * 20 + 5;  // y
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 100; // z
+        // Position particles randomly within a large cube
+        positions[i * 3] = (Math.random() - 0.5) * 100;
+        positions[i * 3 + 1] = Math.random() * 20;  // Height up to 20 units
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 100;
         
-        // Color
-        colors[i * 3] = Math.random(); // r
-        colors[i * 3 + 1] = Math.random(); // g
-        colors[i * 3 + 2] = Math.random(); // b
+        // Give particles a slight blue-white color
+        colors[i * 3] = 0.8 + Math.random() * 0.2;
+        colors[i * 3 + 1] = 0.8 + Math.random() * 0.2;
+        colors[i * 3 + 2] = 0.9 + Math.random() * 0.1;
     }
     
     particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     particles.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     
-    // Create particle material
     const particleMaterial = new THREE.PointsMaterial({
-        size: 0.2,
+        size: 0.1,
         vertexColors: true,
         transparent: true,
-        opacity: 0.6
+        opacity: 0.5
     });
     
-    // Create the particle system
     const particleSystem = new THREE.Points(particles, particleMaterial);
     scene.add(particleSystem);
-    
-    // Add animation for particles
-    particleSystem.update = function(time) {
-        const positions = particles.attributes.position.array;
-        
-        for (let i = 0; i < particleCount; i++) {
-            // Make particles float up and down
-            positions[i * 3 + 1] += Math.sin(time + i) * 0.01;
-            
-            // Reset particles that go too high or too low
-            if (positions[i * 3 + 1] > 30) positions[i * 3 + 1] = 5;
-            if (positions[i * 3 + 1] < 5) positions[i * 3 + 1] = 30;
-        }
-        
-        particles.attributes.position.needsUpdate = true;
-    };
-    
-    return particleSystem;
 }
 
 /**
- * Updates all animated elements in the world
- */
-function updateWorld(time) {
-    const delta = clock.getDelta(); // Get delta time here for updates
-
-    // Update learning station demos
-    for (const stationKey in learningStations) {
-        const station = learningStations[stationKey];
-        if (station.demoObject && station.demoObject.update && station.demoObject.visible) {
-            // Pass both elapsed time and delta time if needed
-            station.demoObject.update(time, delta);
-        }
-    }
-    
-    // Update particle system
-    if (scene.getObjectByName('particles') && scene.getObjectByName('particles').update) {
-        scene.getObjectByName('particles').update(time);
-    }
-}
-
-/**
- * Checks if the player is near a learning station and activates it if so
- */
-function checkStationProximity() {
-    try {
-        // Get player position
-        const playerPosition = camera.position;
-        
-        // Check distance to each station
-        let nearestStation = null;
-        let nearestDistance = 5; // Activation radius
-        
-        for (const stationKey in learningStations) {
-            const station = learningStations[stationKey];
-            const distance = playerPosition.distanceTo(station.position);
-            
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestStation = station;
-            }
-        }
-        
-        // Activate nearest station, deactivate others
-        if (nearestStation !== currentStation) {
-            // Deactivate current station if there is one
-            if (currentStation) {
-                currentStation.deactivate();
-            }
-            
-            // Activate new station if there is one
-            if (nearestStation) {
-                nearestStation.activate();
-            } else {
-                // No station is nearby, reset UI
-                const currentTopicElement = document.getElementById('current-topic');
-                if (currentTopicElement) {
-                    currentTopicElement.textContent = 'Explore';
-                }
-                
-                const topicDescriptionElement = document.getElementById('topic-description');
-                if (topicDescriptionElement) {
-                    topicDescriptionElement.innerHTML = 
-                        '<p>Move around the 3D world to discover learning stations about computer graphics concepts.</p>';
-                }
-                
-                currentStation = null;
-            }
-        }
-    } catch (error) {
-        console.error('Error in checkStationProximity:', error);
-    }
-}
-
-/**
- * Creates simple walls at the edge of the world
+ * Creates a world border to prevent players from leaving the area
  */
 function createWorldBorder() {
-    const wallHeight = 20;
-    const wallThickness = 1;
-    const worldSize = 100; // Match terrain size
-    const wallOffset = worldSize / 2 + wallThickness / 2; // Place walls just outside terrain
-
-    const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x666666, side: THREE.DoubleSide });
-
-    // Wall Geometry (long side)
-    const wallGeometryX = new THREE.BoxGeometry(worldSize + wallThickness * 2, wallHeight, wallThickness);
-    // Wall Geometry (short side)
-    const wallGeometryZ = new THREE.BoxGeometry(wallThickness, wallHeight, worldSize + wallThickness * 2);
-
-    // Wall +Z
-    const wallPosZ = new THREE.Mesh(wallGeometryX, wallMaterial);
-    wallPosZ.position.set(0, wallHeight / 2 - 1, wallOffset); // Adjust Y based on terrain Y=-1
-    scene.add(wallPosZ);
-
-    // Wall -Z
-    const wallNegZ = new THREE.Mesh(wallGeometryX, wallMaterial);
-    wallNegZ.position.set(0, wallHeight / 2 - 1, -wallOffset); // Adjust Y based on terrain Y=-1
-    scene.add(wallNegZ);
-
-    // Wall +X
-    const wallPosX = new THREE.Mesh(wallGeometryZ, wallMaterial);
-    wallPosX.position.set(wallOffset, wallHeight / 2 - 1, 0); // Adjust Y based on terrain Y=-1
-    scene.add(wallPosX);
-
-    // Wall -X
-    const wallNegX = new THREE.Mesh(wallGeometryZ, wallMaterial);
-    wallNegX.position.set(-wallOffset, wallHeight / 2 - 1, 0); // Adjust Y based on terrain Y=-1
-    scene.add(wallNegX);
-
-    console.log('World border walls created');
+    const wallHeight = 10;
+    const worldSize = 50;
+    const wallMaterial = new THREE.MeshStandardMaterial({
+        color: 0x888888,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+    });
+    
+    // Create four walls
+    const walls = [
+        // North wall
+        { pos: [0, wallHeight/2 - 1, -worldSize], size: [worldSize*2, wallHeight, 0.5] },
+        // South wall
+        { pos: [0, wallHeight/2 - 1, worldSize], size: [worldSize*2, wallHeight, 0.5] },
+        // East wall
+        { pos: [worldSize, wallHeight/2 - 1, 0], size: [0.5, wallHeight, worldSize*2] },
+        // West wall
+        { pos: [-worldSize, wallHeight/2 - 1, 0], size: [0.5, wallHeight, worldSize*2] }
+    ];
+    
+    walls.forEach(wall => {
+        const geometry = new THREE.BoxGeometry(wall.size[0], wall.size[1], wall.size[2]);
+        const mesh = new THREE.Mesh(geometry, wallMaterial);
+        mesh.position.set(wall.pos[0], wall.pos[1], wall.pos[2]);
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+    });
 }
 
 // Ensure functions are properly exposed to the global scope
@@ -894,4 +1306,17 @@ if (typeof createWorld !== 'function') {
     console.log('Functions explicitly exposed to window object');
 } else {
     console.log('createWorld function is properly defined in the global scope');
-} 
+}
+
+//=============================================================================
+// EXPORTS
+//=============================================================================
+
+// Export public functions and variables
+export {
+    initWorld,
+    updateWorld,
+    checkStationProximity,
+    learningStations,
+    terrain
+}; 

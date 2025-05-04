@@ -1,9 +1,9 @@
 /**
- * First-person controls for the Graphics Learning Studio
- * This file handles camera movement and user interaction in the 3D world
+ * first person controls for graphics learning studio
+ * handles player movement and camera controls
  */
 
-// Control variables
+// movement flags
 let moveForward = false;
 let moveBackward = false;
 let moveLeft = false;
@@ -11,123 +11,89 @@ let moveRight = false;
 let canJump = false;
 let pointerLocked = false;
 
+// physics values
 let velocity = new THREE.Vector3();
 let direction = new THREE.Vector3();
 let controls;
 
-// Debug flag
-const DEBUG_CONTROLS = true;
-
 /**
- * Initializes first-person controls for the camera
+ * setup first person controls
  */
 function initFirstPersonControls(camera, domElement) {
-    if (DEBUG_CONTROLS) console.log('Initializing first-person controls...');
-    
     try {
         if (!camera) {
-            console.error('Camera is undefined in initFirstPersonControls');
+            console.error('no camera provided');
             return;
         }
         
-        if (DEBUG_CONTROLS) console.log('Camera position before controls:', camera.position);
-        
-        // Store initial camera position
+        // save initial position
         const initialPosition = camera.position.clone();
         
-        // Check if PointerLockControls is available
+        // make sure pointer lock controls exist
         if (!THREE.PointerLockControls) {
-            console.error('THREE.PointerLockControls is not defined');
-            console.log('THREE object:', THREE);
+            console.error('pointer lock controls missing');
             return;
         }
         
-        // Create pointer lock controls
+        // create controls
         controls = new THREE.PointerLockControls(camera, domElement);
         
-        if (DEBUG_CONTROLS) console.log('Controls created:', controls);
-        
-        // Restore camera position (sometimes PointerLockControls changes it)
+        // fix camera position
         camera.position.copy(initialPosition);
         
-        if (DEBUG_CONTROLS) console.log('Camera position after controls:', camera.position);
-        
-        // Add event listeners for pointer lock
+        // handle clicks for locking mouse
         document.addEventListener('click', function(event) {
-            if (DEBUG_CONTROLS) console.log('Document clicked, checking lock state');
-            
-            // Only react if we clicked on the canvas or instructions
+            // only react to canvas or instructions clicks
             const target = event.target;
             const isCanvas = target.closest('#canvas-container');
             const isInstructions = target.closest('#instructions');
             
-            if (DEBUG_CONTROLS) console.log('Click target:', target, 'isCanvas:', isCanvas, 'isInstructions:', isInstructions);
-            
             if (isCanvas || isInstructions) {
-                // Try to toggle pointer lock
                 try {
-                    if (controls.isLocked) {
-                        if (DEBUG_CONTROLS) console.log('Already locked, requesting unlock');
-                        // controls.unlock(); // Let ESC handle unlocking for now to avoid accidental unlocks?
-                        // Let's stick to the original behavior: click locks, ESC unlocks.
-                        // If you *really* want click-to-unlock, uncomment the line above.
-                        // For now, we just ensure click only attempts lock when unlocked.
-                        console.log('Click ignored: Already locked. Use ESC to unlock.');
-                    } else {
-                        if (DEBUG_CONTROLS) console.log('Not locked, requesting lock');
+                    if (!controls.isLocked) {
                         controls.lock();
                     }
                 } catch (error) {
-                    console.error('Error toggling pointer lock:', error);
+                    console.error('pointer lock error:', error);
                 }
             }
         });
         
+        // handle lock event
         controls.addEventListener('lock', function() {
-            if (DEBUG_CONTROLS) console.log('Pointer lock acquired');
             pointerLocked = true;
             
-            // Hide instructions when locked
+            // hide instructions
             const instructions = document.getElementById('instructions');
             if (instructions) {
                 instructions.style.display = 'none';
             }
         });
         
+        // handle unlock event
         controls.addEventListener('unlock', function() {
-            if (DEBUG_CONTROLS) console.log('Pointer lock released');
             pointerLocked = false;
-            
-            // Show instructions when unlocked - REMOVED THIS BEHAVIOR
-            /*
-            const instructions = document.getElementById('instructions');
-            if (instructions) {
-                instructions.style.display = 'flex';
-            }
-            */
         });
         
-        // Add keyboard controls
+        // setup keyboard controls
         document.addEventListener('keydown', onKeyDown);
         document.addEventListener('keyup', onKeyUp);
         
-        // Create a crosshair in the center of the screen
+        // add crosshair
         createCrosshair();
-        
-        if (DEBUG_CONTROLS) console.log('First-person controls initialized successfully');
         
         return controls;
     } catch (error) {
-        console.error('Error initializing first-person controls:', error);
+        console.error('controls init error:', error);
     }
 }
 
 /**
- * Creates a crosshair in the center of the screen
+ * create simple crosshair
  */
 function createCrosshair() {
     try {
-        // Check if crosshair already exists
+        // check if already exists
         if (document.getElementById('crosshair')) {
             return;
         }
@@ -137,45 +103,23 @@ function createCrosshair() {
         crosshair.style.position = 'absolute';
         crosshair.style.top = '50%';
         crosshair.style.left = '50%';
-        crosshair.style.width = '20px';
-        crosshair.style.height = '20px';
-        crosshair.style.marginTop = '-10px';
-        crosshair.style.marginLeft = '-10px';
+        crosshair.style.width = '10px';
+        crosshair.style.height = '10px';
+        crosshair.style.marginTop = '-5px';
+        crosshair.style.marginLeft = '-5px';
         crosshair.style.zIndex = '999';
         crosshair.style.pointerEvents = 'none';
-        
-        // Create crosshair lines
-        const verticalLine = document.createElement('div');
-        verticalLine.style.position = 'absolute';
-        verticalLine.style.top = '0';
-        verticalLine.style.left = '50%';
-        verticalLine.style.width = '2px';
-        verticalLine.style.height = '100%';
-        verticalLine.style.marginLeft = '-1px';
-        verticalLine.style.backgroundColor = 'white';
-        
-        const horizontalLine = document.createElement('div');
-        horizontalLine.style.position = 'absolute';
-        horizontalLine.style.top = '50%';
-        horizontalLine.style.left = '0';
-        horizontalLine.style.width = '100%';
-        horizontalLine.style.height = '2px';
-        horizontalLine.style.marginTop = '-1px';
-        horizontalLine.style.backgroundColor = 'white';
-        
-        crosshair.appendChild(verticalLine);
-        crosshair.appendChild(horizontalLine);
+        crosshair.style.borderRadius = '50%';
+        crosshair.style.border = '1px solid white';
         
         document.body.appendChild(crosshair);
-        
-        if (DEBUG_CONTROLS) console.log('Crosshair created');
     } catch (error) {
-        console.error('Error creating crosshair:', error);
+        console.error('crosshair error:', error);
     }
 }
 
 /**
- * Handles keydown events for movement
+ * handle key presses
  */
 function onKeyDown(event) {
     switch (event.code) {
@@ -199,28 +143,24 @@ function onKeyDown(event) {
             moveRight = true;
             break;
             
-        case 32: // space
+        case 'Space':
             if (canJump === true) velocity.y += 100.0;
             canJump = false;
             break;
             
         case 'Tab':
         case 'KeyI':
-            // Toggle UI panel
+            // toggle info panel
             const uiPanel = document.getElementById('ui-panel');
             if (uiPanel) {
-                if (uiPanel.classList.contains('visible')) {
-                    uiPanel.classList.remove('visible');
-                } else {
-                    uiPanel.classList.add('visible');
-                }
+                uiPanel.classList.toggle('visible');
             }
             break;
     }
 }
 
 /**
- * Handles keyup events for movement
+ * handle key releases
  */
 function onKeyUp(event) {
     switch (event.code) {
@@ -247,67 +187,54 @@ function onKeyUp(event) {
 }
 
 /**
- * Updates the controls based on user input
+ * update player position and physics
  */
 function updateFirstPersonControls(delta) {
-    if (!controls) {
-        if (DEBUG_CONTROLS) console.log('Controls not initialized in updateFirstPersonControls');
+    if (!controls || !pointerLocked) {
         return;
     }
     
-    if (!pointerLocked) {
-        return;
-    }
-    
-    // Apply gravity and damping
+    // apply gravity/damping
     velocity.y -= 9.8 * 80.0 * delta;
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
     
-    // Set direction based on movement keys
+    // calculate movement direction
     direction.z = Number(moveForward) - Number(moveBackward);
     direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize(); // Ensure consistent movement speed in all directions
+    direction.normalize();
     
-    // Update velocity based on movement direction and speed multiplier
-    const speedMultiplier = 250.0; // Further reduced speed multiplier
+    // apply movement forces
+    const speedMultiplier = 250.0;
     if (moveForward || moveBackward) velocity.z -= direction.z * speedMultiplier * delta;
     if (moveLeft || moveRight) velocity.x -= direction.x * speedMultiplier * delta;
     
-    // Apply movement to controls
+    // move the camera
     controls.moveRight(-velocity.x * delta);
     controls.moveForward(-velocity.z * delta);
     
-    // Apply gravity to camera position
+    // apply gravity
     camera.position.y += (velocity.y * delta);
 
-    // Add world boundary limits
+    // world boundaries
     const boundary = 45.0;
     camera.position.x = Math.max(-boundary, Math.min(boundary, camera.position.x));
     camera.position.z = Math.max(-boundary, Math.min(boundary, camera.position.z));
     
-    // Check if we're on the ground
-    const groundLevelY = 1.6; // Raised camera height 
-    if (camera.position.y < groundLevelY) { 
+    // ground collision
+    const groundLevel = 1.6;
+    if (camera.position.y < groundLevel) { 
         velocity.y = 0;
-        camera.position.y = groundLevelY; 
+        camera.position.y = groundLevel; 
         canJump = true;
     }
     
-    // Check for station proximity
+    // check for learning stations
     if (typeof checkStationProximity === 'function') {
         checkStationProximity();
     }
 }
 
-// Ensure functions are properly exposed to the global scope
-console.log('FirstPersonControls.js loaded, checking function availability');
-if (typeof initFirstPersonControls !== 'function') {
-    console.error('initFirstPersonControls function is not properly defined in the global scope');
-    // Try to explicitly expose it
-    window.initFirstPersonControls = initFirstPersonControls;
-    window.updateFirstPersonControls = updateFirstPersonControls;
-    console.log('Functions explicitly exposed to window object');
-} else {
-    console.log('initFirstPersonControls function is properly defined in the global scope');
-} 
+// expose functions globally
+window.initFirstPersonControls = initFirstPersonControls;
+window.updateFirstPersonControls = updateFirstPersonControls; 

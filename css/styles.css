@@ -255,4 +255,136 @@ button:hover {
 
 #ui-toggle:hover {
     background-color: rgba(76, 175, 80, 0.7);
+}
+
+/* Station interactive controls */
+.station-controls {
+    font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.station-controls h3 {
+    color: #FFC107;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    letter-spacing: 1px;
+}
+
+.station-controls button {
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.station-controls button:hover {
+    transform: scale(1.2);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+
+.station-controls button:active {
+    transform: scale(0.95);
+}
+
+.station-controls input[type="range"] {
+    height: 20px;
+    -webkit-appearance: none;
+    margin: 10px 0;
+    width: 100%;
+    background: transparent;
+}
+
+.station-controls input[type="range"]:focus {
+    outline: none;
+}
+
+.station-controls input[type="range"]::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    cursor: pointer;
+    animate: 0.2s;
+    box-shadow: 0px 0px 3px #000000;
+    background: #4CAF50;
+    border-radius: 10px;
+}
+
+.station-controls input[type="range"]::-webkit-slider-thumb {
+    box-shadow: 1px 1px 3px #000000;
+    border: 2px solid #FFFFFF;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    background: #FFEB3B;
+    cursor: pointer;
+    -webkit-appearance: none;
+    margin-top: -6px;
+}
+
+/* Lighting station specific controls */
+.lighting-controls {
+    background: linear-gradient(to bottom, rgba(40, 40, 60, 0.85), rgba(20, 20, 40, 0.85));
+    animation: glow 3s infinite alternate;
+}
+
+@keyframes glow {
+    from {
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+    }
+}
+
+/* Texturing station specific controls */
+.texturing-controls {
+    background: linear-gradient(to bottom, rgba(33, 150, 243, 0.85), rgba(13, 71, 161, 0.85));
+    animation: textureGlow 3s infinite alternate;
+}
+
+@keyframes textureGlow {
+    from {
+        box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(33, 150, 243, 0.8);
+    }
+}
+
+.texturing-controls .texture-btn {
+    transition: all 0.2s ease;
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.texturing-controls .texture-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Shader station specific controls */
+.shader-controls {
+    background: linear-gradient(to bottom, rgba(156, 39, 176, 0.85), rgba(74, 20, 140, 0.85));
+    animation: shaderGlow 3s infinite alternate;
+}
+
+@keyframes shaderGlow {
+    from {
+        box-shadow: 0 0 10px rgba(156, 39, 176, 0.5);
+    }
+    to {
+        box-shadow: 0 0 20px rgba(156, 39, 176, 0.8);
+    }
+}
+
+.shader-controls .wave-count-btn {
+    border-radius: 50%;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.shader-controls .wave-count-btn:hover {
+    transform: scale(1.15);
 } 
