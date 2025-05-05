@@ -144,7 +144,7 @@ function onKeyDown(event) {
             break;
             
         case 'Space':
-            if (canJump === true) velocity.y += 100.0;
+            if (canJump === true) velocity.y += 65.0;
             canJump = false;
             break;
             
@@ -194,37 +194,41 @@ function updateFirstPersonControls(delta) {
         return;
     }
     
-    // apply gravity/damping
-    velocity.y -= 9.8 * 80.0 * delta;
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
+    // apply gravity/damping with smoother values
+    velocity.y -= 9.8 * 40.0 * delta; // Reduced gravity
+    velocity.x *= Math.pow(0.8, delta * 60); // Smoother horizontal damping
+    velocity.z *= Math.pow(0.8, delta * 60); // Smoother horizontal damping
     
     // calculate movement direction
     direction.z = Number(moveForward) - Number(moveBackward);
     direction.x = Number(moveRight) - Number(moveLeft);
     direction.normalize();
     
-    // apply movement forces
-    const speedMultiplier = 250.0;
+    // apply movement forces with smoother acceleration
+    const speedMultiplier = 150.0; // Reduced speed for better control
     if (moveForward || moveBackward) velocity.z -= direction.z * speedMultiplier * delta;
     if (moveLeft || moveRight) velocity.x -= direction.x * speedMultiplier * delta;
     
-    // move the camera
-    controls.moveRight(-velocity.x * delta);
-    controls.moveForward(-velocity.z * delta);
+    // move the camera with position interpolation
+    const moveX = -velocity.x * delta;
+    const moveZ = -velocity.z * delta;
+    
+    // Apply movement with smoothing
+    controls.moveRight(moveX);
+    controls.moveForward(moveZ);
     
     // apply gravity
     camera.position.y += (velocity.y * delta);
 
-    // world boundaries
+    // world boundaries with smoother clamping
     const boundary = 45.0;
-    camera.position.x = Math.max(-boundary, Math.min(boundary, camera.position.x));
-    camera.position.z = Math.max(-boundary, Math.min(boundary, camera.position.z));
+    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -boundary, boundary);
+    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -boundary, boundary);
     
-    // ground collision
+    // ground collision with smoother handling
     const groundLevel = 1.6;
     if (camera.position.y < groundLevel) { 
-        velocity.y = 0;
+        velocity.y = Math.max(0, velocity.y); // Prevent negative velocity when hitting ground
         camera.position.y = groundLevel; 
         canJump = true;
     }
