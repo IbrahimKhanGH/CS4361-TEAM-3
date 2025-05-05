@@ -167,7 +167,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     <p>• Move: WASD or Arrow Keys</p>
                     <p>• Look: Mouse</p>
                     <p>• Jump: Space</p>
-                    <p>• Exit: ESC</p>
+                    <p>• Unlock Mouse: ESC key</p>
+                    <p>• Resume Control: Double-click screen</p>
                     <p>• Toggle Info: Tab key or 'i' button</p>
                 </div>
                 
